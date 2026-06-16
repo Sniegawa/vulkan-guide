@@ -66,9 +66,18 @@ void VulkanEngine::init_vulkan()
 
 	// Collect the instance handles
 	_instance = vkb_inst.instance;
+	m_mainDeletionQueue.push_function([this]() {
+		vkDestroyInstance(_instance, nullptr);
+	});
+
 	_debug_messenger = vkb_inst.debug_messenger;
+	m_mainDeletionQueue.push_function([this]() {
+		vkb::destroy_debug_utils_messenger(_instance, _debug_messenger);
+	});
 
 	SDL_Vulkan_CreateSurface(_window, _instance, &_surface);
+
+
 
 	VkPhysicalDeviceVulkan13Features features13{ .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES };
 	features13.dynamicRendering = true;
@@ -98,6 +107,10 @@ void VulkanEngine::init_vulkan()
 	vkb::Device vkbDevice = deviceBuilder.build().value();
 
 	_device = vkbDevice.device;
+	m_mainDeletionQueue.push_function([this]() {
+		vkDestroyDevice(_device, nullptr);
+	});
+
 	_chosenGPU = physicalDevice.physical_device;
 
 	_graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
@@ -126,16 +139,6 @@ void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
 	_swapchainData.swapchainImageViews = vkbSwapchain.get_image_views().value();
 }
 
-void VulkanEngine::destroy_swapchain()
-{
-	vkDestroySwapchainKHR(_device, _swapchainData.swapchain, nullptr);
-
-	for(int i = 0; i < _swapchainData.swapchainImageViews.size(); i++)
-	{
-		vkDestroyImageView(_device, _swapchainData.swapchainImageViews[i], nullptr);
-	}
-}
-
 void VulkanEngine::init_swapchain()
 {
 	create_swapchain(_windowExtent.width, _windowExtent.height);
@@ -158,7 +161,7 @@ void VulkanEngine::init_commands()
 
 void VulkanEngine::init_sync_structures()
 {
-	// One fence to controle when the gpu has finished rendering the frame
+	// One fence to controls when the gpu has finished rendering the frame
 	// and 2 semaphores to synchronize rendering with swapchain
 
 	VkFenceCreateInfo fenceCreateInfo = vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT); // That flags means we can wait on created fence
@@ -189,6 +192,19 @@ void VulkanEngine::init_sync_structures()
 	for (auto& sem : _swapchainData.renderSemaphores)
 		VK_CHECK(vkCreateSemaphore(_device, &createInfo, nullptr, &sem));
 
+	_swapchainData._dQueue.push_function([this]() {
+		vkDestroySwapchainKHR(_device, _swapchainData.swapchain, nullptr);
+
+		for (int i = 0; i < _swapchainData.swapchainImageViews.size(); i++)
+		{
+			vkDestroyImageView(_device, _swapchainData.swapchainImageViews[i], nullptr);
+		}
+		for (auto& sem : _swapchainData.imageAvailableSemaphores)
+			vkDestroySemaphore(_device, sem, nullptr);
+
+		for (auto& sem : _swapchainData.renderSemaphores)
+			vkDestroySemaphore(_device, sem, nullptr);
+		});
 }
 
 void VulkanEngine::draw()
@@ -326,22 +342,15 @@ void VulkanEngine::cleanup()
 
 			vkDestroyFence(_device, _frames[i].renderFence, nullptr);
 			vkDestroySemaphore(_device, _frames[i].swapchainSemaphore, nullptr);
+
+			_frames[i]._dQueue.flush();
 		}
 
-		for (auto& sem : _swapchainData.imageAvailableSemaphores)
-			vkDestroySemaphore(_device, sem, nullptr);
-
-		for (auto& sem : _swapchainData.renderSemaphores)
-			vkDestroySemaphore(_device, sem, nullptr);
-
-		destroy_swapchain();
+		_swapchainData._dQueue.flush();
 
 		vkDestroySurfaceKHR(_instance, _surface, nullptr);
-		vkDestroyDevice(_device, nullptr);
 
-		vkb::destroy_debug_utils_messenger(_instance, _debug_messenger);
-		vkDestroyInstance(_instance, nullptr);
-
+		m_mainDeletionQueue.flush();
 		SDL_DestroyWindow(_window);
 	}
 

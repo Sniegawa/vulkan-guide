@@ -4,6 +4,7 @@
 #pragma once
 
 #include <vk_types.h>
+#include "DeletionQueue.h"
 
 struct FrameData {
 	VkCommandPool commandPool;
@@ -11,6 +12,8 @@ struct FrameData {
 
 	VkSemaphore swapchainSemaphore;
 	VkFence renderFence;
+
+	DeletionQueue _dQueue;
 };
 
 struct SwapchainData {
@@ -27,6 +30,8 @@ struct SwapchainData {
 	std::vector<VkSemaphore> renderSemaphores; 
 
 	VkExtent2D swapchainExtent;
+
+	DeletionQueue _dQueue;
 };
 
 constexpr unsigned int FRAME_OVERLAP = 2;
@@ -77,5 +82,6 @@ private:
 	void init_sync_structures();
 
 	void create_swapchain(uint32_t width, uint32_t height);
-	void destroy_swapchain();
+private:
+	DeletionQueue m_mainDeletionQueue;
 };
