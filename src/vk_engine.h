@@ -6,27 +6,27 @@
 #include <vk_types.h>
 
 struct FrameData {
-	VkCommandPool _commandPool;
-	VkCommandBuffer _mainCommandBuffer;
+	VkCommandPool commandPool;
+	VkCommandBuffer mainCommandBuffer;
 
-	VkSemaphore _swapchainSemaphore;
-	VkFence _renderFence;
+	VkSemaphore swapchainSemaphore;
+	VkFence renderFence;
 };
 
 struct SwapchainData {
-	VkSwapchainKHR _swapchain;
-	VkFormat _swapchainImageFormat;
+	VkSwapchainKHR swapchain;
+	VkFormat swapchainImageFormat;
 
-	std::vector<VkImage> _swapchainImages;
-	std::vector<VkImageView> _swapchainImageViews;
+	std::vector<VkImage> swapchainImages;
+	std::vector<VkImageView> swapchainImageViews;
 
-	std::vector<VkSemaphore> _imageAvailableSemaphores; // One per swapchain
-	std::vector<VkSemaphore> _freeSemaphores; // pool of unowned semaphores
-	std::vector<VkSemaphore> _imageOwnerSemaphores; // indexed by swapchainImageIndex
+	std::vector<VkSemaphore> imageAvailableSemaphores; // One per swapchain
+	std::vector<VkSemaphore> freeSemaphores; // pool of unowned semaphores
+	std::vector<VkSemaphore> imageOwnerSemaphores; // indexed by swapchainImageIndex
 
-	std::vector<VkSemaphore> _renderSemaphores; 
+	std::vector<VkSemaphore> renderSemaphores; 
 
-	VkExtent2D _swapchainExtent;
+	VkExtent2D swapchainExtent;
 };
 
 constexpr unsigned int FRAME_OVERLAP = 2;

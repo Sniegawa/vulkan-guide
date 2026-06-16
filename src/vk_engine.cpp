@@ -109,30 +109,30 @@ void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
 {
 	vkb::SwapchainBuilder swapchainBuilder{ _chosenGPU,_device,_surface };
 
-	_swapchainData._swapchainImageFormat = VK_FORMAT_B8G8R8A8_UNORM;
+	_swapchainData.swapchainImageFormat = VK_FORMAT_B8G8R8A8_UNORM;
 
 	vkb::Swapchain vkbSwapchain = swapchainBuilder
-		.set_desired_format(VkSurfaceFormatKHR{ .format = _swapchainData._swapchainImageFormat,.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
+		.set_desired_format(VkSurfaceFormatKHR{ .format = _swapchainData.swapchainImageFormat,.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
 		.set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
 		.set_desired_extent(width, height)
 		.add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
 		.build()
 		.value();
 
-	_swapchainData._swapchainExtent = vkbSwapchain.extent;
+	_swapchainData.swapchainExtent = vkbSwapchain.extent;
 
-	_swapchainData._swapchain = vkbSwapchain.swapchain;
-	_swapchainData._swapchainImages = vkbSwapchain.get_images().value();
-	_swapchainData._swapchainImageViews = vkbSwapchain.get_image_views().value();
+	_swapchainData.swapchain = vkbSwapchain.swapchain;
+	_swapchainData.swapchainImages = vkbSwapchain.get_images().value();
+	_swapchainData.swapchainImageViews = vkbSwapchain.get_image_views().value();
 }
 
 void VulkanEngine::destroy_swapchain()
 {
-	vkDestroySwapchainKHR(_device, _swapchainData._swapchain, nullptr);
+	vkDestroySwapchainKHR(_device, _swapchainData.swapchain, nullptr);
 
-	for(int i = 0; i < _swapchainData._swapchainImageViews.size(); i++)
+	for(int i = 0; i < _swapchainData.swapchainImageViews.size(); i++)
 	{
-		vkDestroyImageView(_device, _swapchainData._swapchainImageViews[i], nullptr);
+		vkDestroyImageView(_device, _swapchainData.swapchainImageViews[i], nullptr);
 	}
 }
 
@@ -147,11 +147,11 @@ void VulkanEngine::init_commands()
 
 	for(int i = 0; i < FRAME_OVERLAP; i++)
 	{
-		VK_CHECK(vkCreateCommandPool(_device, &commandPoolInfo, nullptr, &_frames[i]._commandPool));
+		VK_CHECK(vkCreateCommandPool(_device, &commandPoolInfo, nullptr, &_frames[i].commandPool));
 
-		VkCommandBufferAllocateInfo cmdAllocInfo = vkinit::command_buffer_allocate_info(_frames[i]._commandPool, 1);
+		VkCommandBufferAllocateInfo cmdAllocInfo = vkinit::command_buffer_allocate_info(_frames[i].commandPool, 1);
 
-		VK_CHECK(vkAllocateCommandBuffers(_device, &cmdAllocInfo, &_frames[i]._mainCommandBuffer));
+		VK_CHECK(vkAllocateCommandBuffers(_device, &cmdAllocInfo, &_frames[i].mainCommandBuffer));
 	}
 
 }
@@ -166,27 +166,27 @@ void VulkanEngine::init_sync_structures()
 
 	for(int i = 0; i < FRAME_OVERLAP; i++)
 	{
-		VK_CHECK(vkCreateFence(_device, &fenceCreateInfo, nullptr, &_frames[i]._renderFence));
+		VK_CHECK(vkCreateFence(_device, &fenceCreateInfo, nullptr, &_frames[i].renderFence));
 
-		VK_CHECK(vkCreateSemaphore(_device, &semaphoreCreateInfo, nullptr, &_frames[i]._swapchainSemaphore));
+		VK_CHECK(vkCreateSemaphore(_device, &semaphoreCreateInfo, nullptr, &_frames[i].swapchainSemaphore));
 	}
 
 	// Create swapchain image available semaphores
 	
-	uint32_t imageCount = _swapchainData._swapchainImages.size();
+	uint32_t imageCount = _swapchainData.swapchainImages.size();
 	
-	_swapchainData._imageAvailableSemaphores.resize(imageCount + 1);
-	_swapchainData._imageOwnerSemaphores.resize(imageCount, VK_NULL_HANDLE);
+	_swapchainData.imageAvailableSemaphores.resize(imageCount + 1);
+	_swapchainData.imageOwnerSemaphores.resize(imageCount, VK_NULL_HANDLE);
 
 	VkSemaphoreCreateInfo createInfo = vkinit::semaphore_create_info();
-	for (auto& sem : _swapchainData._imageAvailableSemaphores)
+	for (auto& sem : _swapchainData.imageAvailableSemaphores)
 	{
 		VK_CHECK(vkCreateSemaphore(_device, &createInfo, nullptr, &sem));
-		_swapchainData._freeSemaphores.push_back(sem);
+		_swapchainData.freeSemaphores.push_back(sem);
 	}
 
-	_swapchainData._renderSemaphores.resize(imageCount);
-	for (auto& sem : _swapchainData._renderSemaphores)
+	_swapchainData.renderSemaphores.resize(imageCount);
+	for (auto& sem : _swapchainData.renderSemaphores)
 		VK_CHECK(vkCreateSemaphore(_device, &createInfo, nullptr, &sem));
 
 }
@@ -194,35 +194,35 @@ void VulkanEngine::init_sync_structures()
 void VulkanEngine::draw()
 {
 	auto& CurrentFrame = get_current_frame();
-	VK_CHECK(vkWaitForFences(_device, 1, &CurrentFrame._renderFence, true, 1000000000)); // Timeout is 1000000000ns = 1s
-	VK_CHECK(vkResetFences(_device, 1, &CurrentFrame._renderFence));
+	VK_CHECK(vkWaitForFences(_device, 1, &CurrentFrame.renderFence, true, 1000000000)); // Timeout is 1000000000ns = 1s
+	VK_CHECK(vkResetFences(_device, 1, &CurrentFrame.renderFence));
 
 	//--------------------\\
 	// Get swapchain image\\
 	//--------------------\\
 
-	assert(!_swapchainData._freeSemaphores.empty());
-	VkSemaphore acquireSemaphore = _swapchainData._freeSemaphores.back();
-	_swapchainData._freeSemaphores.pop_back();
+	assert(!_swapchainData.freeSemaphores.empty());
+	VkSemaphore acquireSemaphore = _swapchainData.freeSemaphores.back();
+	_swapchainData.freeSemaphores.pop_back();
 
 	uint32_t swapchainImageIndex;
 
-	VK_CHECK(vkAcquireNextImageKHR(_device, _swapchainData._swapchain, 1000000000, acquireSemaphore, nullptr, &swapchainImageIndex));
+	VK_CHECK(vkAcquireNextImageKHR(_device, _swapchainData.swapchain, 1000000000, acquireSemaphore, nullptr, &swapchainImageIndex));
 
 	// If this imageIndex has its owning semaphore recycle it
-	if (_swapchainData._imageOwnerSemaphores[swapchainImageIndex] != VK_NULL_HANDLE)
-		_swapchainData._freeSemaphores.push_back(_swapchainData._imageOwnerSemaphores[swapchainImageIndex]);
+	if (_swapchainData.imageOwnerSemaphores[swapchainImageIndex] != VK_NULL_HANDLE)
+		_swapchainData.freeSemaphores.push_back(_swapchainData.imageOwnerSemaphores[swapchainImageIndex]);
 
 
-	_swapchainData._imageOwnerSemaphores[swapchainImageIndex] = acquireSemaphore;
+	_swapchainData.imageOwnerSemaphores[swapchainImageIndex] = acquireSemaphore;
 
-	VkSemaphore renderSem = _swapchainData._renderSemaphores[swapchainImageIndex];
+	VkSemaphore renderSem = _swapchainData.renderSemaphores[swapchainImageIndex];
 
 	//-------------------------------\\
 	// Create and fill command buffer\\
 	//-------------------------------\\
 
-	VkCommandBuffer cmdBfr = CurrentFrame._mainCommandBuffer;
+	VkCommandBuffer cmdBfr = CurrentFrame.mainCommandBuffer;
 
 	VK_CHECK(vkResetCommandBuffer(cmdBfr, 0));
 
@@ -231,7 +231,7 @@ void VulkanEngine::draw()
 	VK_CHECK(vkBeginCommandBuffer(cmdBfr, &cmdBfrBeginInfo));
 	{
 		// Transition image from don't care to general
-		vkutil::transition_image(cmdBfr, _swapchainData._swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		vkutil::transition_image(cmdBfr, _swapchainData.swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
 		VkClearColorValue clearValue;
 		float flash = std::abs(std::sin(_frameNumber / 120.0f));
@@ -239,10 +239,10 @@ void VulkanEngine::draw()
 
 		VkImageSubresourceRange clearRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
 
-		vkCmdClearColorImage(cmdBfr, _swapchainData._swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+		vkCmdClearColorImage(cmdBfr, _swapchainData.swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 
 		// Transition image into presentation mode
-		vkutil::transition_image(cmdBfr, _swapchainData._swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+		vkutil::transition_image(cmdBfr, _swapchainData.swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
 	}
 	VK_CHECK(vkEndCommandBuffer(cmdBfr));
@@ -258,7 +258,7 @@ void VulkanEngine::draw()
 
 	VkSubmitInfo2 submitInfo = vkinit::submit_info(&cmdBfrSubmitInfo, &signalInfo, &waitInfo);
 
-	VK_CHECK(vkQueueSubmit2(_graphicsQueue, 1, &submitInfo, CurrentFrame._renderFence));
+	VK_CHECK(vkQueueSubmit2(_graphicsQueue, 1, &submitInfo, CurrentFrame.renderFence));
 
 	//---------------------\\
 	// Prepare presentation\\
@@ -267,7 +267,7 @@ void VulkanEngine::draw()
 	VkPresentInfoKHR presentInfo = {};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.pNext = nullptr;
-	presentInfo.pSwapchains = &_swapchainData._swapchain;
+	presentInfo.pSwapchains = &_swapchainData.swapchain;
 	presentInfo.swapchainCount = 1;
 
 	presentInfo.pWaitSemaphores = &renderSem;
@@ -322,16 +322,16 @@ void VulkanEngine::cleanup()
 
 		for (int i = 0; i < FRAME_OVERLAP; i++)
 		{
-			vkDestroyCommandPool(_device, _frames[i]._commandPool, nullptr);
+			vkDestroyCommandPool(_device, _frames[i].commandPool, nullptr);
 
-			vkDestroyFence(_device, _frames[i]._renderFence, nullptr);
-			vkDestroySemaphore(_device, _frames[i]._swapchainSemaphore, nullptr);
+			vkDestroyFence(_device, _frames[i].renderFence, nullptr);
+			vkDestroySemaphore(_device, _frames[i].swapchainSemaphore, nullptr);
 		}
 
-		for (auto& sem : _swapchainData._imageAvailableSemaphores)
+		for (auto& sem : _swapchainData.imageAvailableSemaphores)
 			vkDestroySemaphore(_device, sem, nullptr);
 
-		for (auto& sem : _swapchainData._renderSemaphores)
+		for (auto& sem : _swapchainData.renderSemaphores)
 			vkDestroySemaphore(_device, sem, nullptr);
 
 		destroy_swapchain();
