@@ -29,3 +29,60 @@
             abort();                                                    \
         }                                                               \
     } while (0)
+
+struct DeletionQueue
+{
+	std::deque<std::function<void()>> deletors;
+
+	void push_function(std::function<void()>&& function)
+	{
+		deletors.push_back(function);
+	}
+
+	void flush()
+	{
+		// Reverse the queue
+		for (auto it = deletors.rbegin(); it != deletors.rend(); it++)
+		{
+			(*it)();
+		}
+
+		deletors.clear();
+	}
+};
+
+struct AllocatedImage {
+	VkImage image;
+	VkImageView imageView;
+	VmaAllocation allocation;
+	VkExtent3D imageExtent;
+	VkFormat imageFormat;
+};
+
+struct FrameData {
+	VkCommandPool commandPool;
+	VkCommandBuffer mainCommandBuffer;
+
+	VkSemaphore swapchainSemaphore;
+	VkFence renderFence;
+
+	DeletionQueue _dQueue;
+};
+
+struct SwapchainData {
+	VkSwapchainKHR swapchain;
+	VkFormat swapchainImageFormat;
+
+	std::vector<VkImage> swapchainImages;
+	std::vector<VkImageView> swapchainImageViews;
+
+	std::vector<VkSemaphore> imageAvailableSemaphores; // One per swapchain
+	std::vector<VkSemaphore> freeSemaphores; // pool of unowned semaphores
+	std::vector<VkSemaphore> imageOwnerSemaphores; // indexed by swapchainImageIndex
+
+	std::vector<VkSemaphore> renderSemaphores;
+
+	VkExtent2D swapchainExtent;
+
+	DeletionQueue _dQueue;
+};
