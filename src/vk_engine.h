@@ -10,6 +10,23 @@
 
 constexpr unsigned int FRAME_OVERLAP = 2;
 
+struct ComputePushConstants 
+{
+	glm::vec4 data1;
+	glm::vec4 data2;
+	glm::vec4 data3;
+	glm::vec4 data4;
+};
+
+struct ComputeEffect {
+	const char* name;
+
+	VkPipeline pipeline;
+	VkPipelineLayout layout;
+
+	ComputePushConstants data;
+};
+
 class VulkanEngine {
 public:
 
@@ -39,8 +56,15 @@ public:
 	VkDescriptorSet _drawImageDescriptors;
 	VkDescriptorSetLayout _drawImageDescriptorLayout;
 
-	VkPipeline _gradientPipeline;
+	//VkPipeline _gradientPipeline;
 	VkPipelineLayout _gradientPipelineLayout;
+
+	std::vector<ComputeEffect> backgroundEffects;
+	int currentBackgroundEffect{ 0 };
+
+	VkFence _immFence; // Immediate submit fence
+	VkCommandBuffer _immCommandBuffer;
+	VkCommandPool _immCommandPool;
 
 	bool _isInitialized{ false };
 	int _frameNumber {0};
@@ -59,11 +83,14 @@ public:
 
 	//draw loop
 	void draw();
+	void draw_imgui(VkCommandBuffer cmdBfr, VkImageView targetImageView);
 
 	//run main loop
 	void run();
 
 	void draw_background(VkCommandBuffer cmdBfr);
+
+	void immediate_submit(std::function<void(VkCommandBuffer cmdBfr)>&& function);
 
 private:
 	void init_vulkan();
@@ -71,6 +98,7 @@ private:
 	void init_commands();
 	void init_sync_structures();
 	void init_descriptors();
+	void init_imgui();
 
 	void init_pipelines();
 	void init_background_pipelines();
