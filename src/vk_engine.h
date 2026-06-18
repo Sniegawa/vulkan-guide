@@ -5,6 +5,9 @@
 
 #include <vk_types.h>
 
+#include <vk_descriptors.h>
+#include <vk_pipelines.h>
+
 constexpr unsigned int FRAME_OVERLAP = 2;
 
 class VulkanEngine {
@@ -14,7 +17,7 @@ public:
 	VkDebugUtilsMessengerEXT _debug_messenger; // Vulkan debug output handle
 	VkPhysicalDevice _chosenGPU; // GPU chosen as the default device -- Propably should rename that
 	VkDevice _device; // Vulkan device for commands
-	VkSurfaceKHR _surface; // 
+	VkSurfaceKHR _surface; // the drawing surface
 
 	SwapchainData _swapchainData;
 
@@ -30,6 +33,14 @@ public:
 	AllocatedImage _drawImage;
 	VkExtent2D _drawExtent;
 
+
+	DescriptorAllocator globalDescriptorAllocator;
+
+	VkDescriptorSet _drawImageDescriptors;
+	VkDescriptorSetLayout _drawImageDescriptorLayout;
+
+	VkPipeline _gradientPipeline;
+	VkPipelineLayout _gradientPipelineLayout;
 
 	bool _isInitialized{ false };
 	int _frameNumber {0};
@@ -59,6 +70,10 @@ private:
 	void init_swapchain();
 	void init_commands();
 	void init_sync_structures();
+	void init_descriptors();
+
+	void init_pipelines();
+	void init_background_pipelines();
 
 	void create_swapchain(uint32_t width, uint32_t height);
 
