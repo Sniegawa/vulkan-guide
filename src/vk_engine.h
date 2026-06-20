@@ -52,7 +52,6 @@ public:
 	AllocatedImage _depthImage;
 	VkExtent2D _drawExtent;
 
-
 	DescriptorAllocator globalDescriptorAllocator;
 
 	VkDescriptorSet _drawImageDescriptors;
@@ -116,6 +115,8 @@ private:
 	void init_mesh_pipeline();
 
 	void create_swapchain(uint32_t width, uint32_t height);
+	void destroy_swapchain();
+	void resize_swapchain();
 	
 	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
 	void destroy_buffer(const AllocatedBuffer& buffer);
@@ -130,4 +131,6 @@ private:
 
 	double _deltaTime = 0.0f;
 	double _time = 0.0f;
+
+	bool resize_requested = false;
 };
