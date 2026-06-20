@@ -7,6 +7,7 @@
 
 #include <vk_descriptors.h>
 #include <vk_pipelines.h>
+#include <vk_loader.h>
 
 constexpr unsigned int FRAME_OVERLAP = 2;
 
@@ -48,6 +49,7 @@ public:
 	VmaAllocator _allocator;
 
 	AllocatedImage _drawImage;
+	AllocatedImage _depthImage;
 	VkExtent2D _drawExtent;
 
 
@@ -62,13 +64,10 @@ public:
 	std::vector<ComputeEffect> backgroundEffects;
 	int currentBackgroundEffect{ 0 };
 
-	VkPipelineLayout _trianglePipelineLayout;
-	VkPipeline _trianglePipeline;
-
 	VkPipelineLayout _meshPipelineLayout;
 	VkPipeline _meshPipeline;
 
-	GPUMeshBuffers rectangle;
+
 
 	VkFence _immFence; // Immediate submit fence
 	VkCommandBuffer _immCommandBuffer;
@@ -100,6 +99,7 @@ public:
 	void draw_geometry(VkCommandBuffer cmdBfr);
 
 	void immediate_submit(std::function<void(VkCommandBuffer cmdBfr)>&& function);
+	GPUMeshBuffers upload_mesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
 
 private:
 	void init_default_data();
@@ -113,7 +113,6 @@ private:
 
 	void init_pipelines();
 	void init_background_pipelines();
-	void init_triangle_pipeline();
 	void init_mesh_pipeline();
 
 	void create_swapchain(uint32_t width, uint32_t height);
@@ -121,8 +120,14 @@ private:
 	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
 	void destroy_buffer(const AllocatedBuffer& buffer);
 
-	GPUMeshBuffers upload_mesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
 
 private:
 	DeletionQueue m_mainDeletionQueue;
+
+	std::vector<std::shared_ptr<MeshAsset>> testMeshes;
+	int currentMesh = 0;
+
+
+	float _deltaTime = 0.0f;
+	std::chrono::time_point<std::chrono::high_resolution_clock> _lastFrameTime;
 };
