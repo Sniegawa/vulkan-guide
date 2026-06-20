@@ -62,6 +62,14 @@ public:
 	std::vector<ComputeEffect> backgroundEffects;
 	int currentBackgroundEffect{ 0 };
 
+	VkPipelineLayout _trianglePipelineLayout;
+	VkPipeline _trianglePipeline;
+
+	VkPipelineLayout _meshPipelineLayout;
+	VkPipeline _meshPipeline;
+
+	GPUMeshBuffers rectangle;
+
 	VkFence _immFence; // Immediate submit fence
 	VkCommandBuffer _immCommandBuffer;
 	VkCommandPool _immCommandPool;
@@ -89,10 +97,13 @@ public:
 	void run();
 
 	void draw_background(VkCommandBuffer cmdBfr);
+	void draw_geometry(VkCommandBuffer cmdBfr);
 
 	void immediate_submit(std::function<void(VkCommandBuffer cmdBfr)>&& function);
 
 private:
+	void init_default_data();
+
 	void init_vulkan();
 	void init_swapchain();
 	void init_commands();
@@ -102,8 +113,15 @@ private:
 
 	void init_pipelines();
 	void init_background_pipelines();
+	void init_triangle_pipeline();
+	void init_mesh_pipeline();
 
 	void create_swapchain(uint32_t width, uint32_t height);
+	
+	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+	void destroy_buffer(const AllocatedBuffer& buffer);
+
+	GPUMeshBuffers upload_mesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
 
 private:
 	DeletionQueue m_mainDeletionQueue;
