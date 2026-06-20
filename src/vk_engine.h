@@ -128,6 +128,6 @@ private:
 	int currentMesh = 0;
 
 
-	float _deltaTime = 0.0f;
-	std::chrono::time_point<std::chrono::high_resolution_clock> _lastFrameTime;
+	double _deltaTime = 0.0f;
+	double _time = 0.0f;
 };

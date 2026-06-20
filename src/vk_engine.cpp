@@ -622,7 +622,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmdBfr)
 
 	push_constants.vertexBuffer = testMeshes[currentMesh]->meshBuffers.vertexBufferAddress;
 
-	glm::mat4 view = glm::translate(glm::mat4(1.0f),glm::vec3(0.0,0.0,-5));
+	glm::mat4 view = glm::translate(glm::mat4(1.0f),glm::vec3(glm::sin(_time)*4.0,0.0,-5));
 
 	glm::mat4 projection = glm::perspective(glm::radians(70.0f), (float)_drawExtent.width / (float)_drawExtent.height, 10000.0f, 0.1f);
 
@@ -830,6 +830,8 @@ void VulkanEngine::run()
 
 	// main loop
 	while (!bQuit) {
+		uint64_t start = SDL_GetPerformanceCounter();
+
 		// Handle events on queue
 		while (SDL_PollEvent(&e) != 0) {
 			// close the window when user alt-f4s or clicks the X button
@@ -860,7 +862,7 @@ void VulkanEngine::run()
 
 		ImGui::NewFrame();
 
-		if(ImGui::Begin("background"))
+		if (ImGui::Begin("background"))
 		{
 			ComputeEffect& selected = backgroundEffects[currentBackgroundEffect];
 
@@ -875,7 +877,7 @@ void VulkanEngine::run()
 		}
 		ImGui::End();
 
-		if(ImGui::Begin("Mesh selector"))
+		if (ImGui::Begin("Mesh selector"))
 		{
 			ImGui::SliderInt("Selected mesh", &currentMesh, 0, testMeshes.size() - 1);
 
@@ -883,7 +885,7 @@ void VulkanEngine::run()
 		ImGui::End();
 
 
-		if(ImGui::Begin("Stats"))
+		if (ImGui::Begin("Stats"))
 		{
 			ImGui::Text("FPS: %.1f", 1.0f / _deltaTime);
 			ImGui::Text("Frame time: %.3f ms", _deltaTime * 1000.0f);
@@ -893,11 +895,11 @@ void VulkanEngine::run()
 		ImGui::Render();
 
 
-		auto now = std::chrono::high_resolution_clock::now();
-		_deltaTime = std::chrono::duration<float>(now - _lastFrameTime).count();
-		_lastFrameTime = now;
-
 		draw();
+
+		uint64_t end = SDL_GetPerformanceCounter();
+		_deltaTime = (float)(end - start) / SDL_GetPerformanceFrequency();
+		_time += _deltaTime;
 	}
 }
 
