@@ -21,6 +21,7 @@
 #include <glm/vec4.hpp>
 
 
+
 #define VK_CHECK(x)                                                     \
     do {                                                                \
         VkResult err = x;                                               \
@@ -59,15 +60,7 @@ struct AllocatedImage {
 	VkFormat imageFormat;
 };
 
-struct FrameData {
-	VkCommandPool commandPool;
-	VkCommandBuffer mainCommandBuffer;
 
-	VkSemaphore swapchainSemaphore;
-	VkFence renderFence;
-
-	DeletionQueue _dQueue;
-};
 
 struct SwapchainData {
 	VkSwapchainKHR swapchain;
@@ -114,4 +107,14 @@ struct GPUDrawPushConstants
 {
 	glm::mat4 worldMatrix;
 	VkDeviceAddress vertexBuffer;
+};
+
+struct GPUSceneData
+{
+	glm::mat4 view = glm::mat4(1.0f);
+	glm::mat4 proj = glm::mat4(1.0f);
+	glm::mat4 viewproj = glm::mat4(1.0f);
+	glm::vec4 ambientColor = glm::vec4(0.2f,0.2f,0.2f,1.0f);
+	glm::vec4 sunlightDirection = glm::vec4(0.1f,0.5f,0.3f,1.0f); // w is power
+	glm::vec4 sunlightColor = glm::vec4(0.8f,0.8f,0.8f,1.0f);
 };

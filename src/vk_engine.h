@@ -3,13 +3,24 @@
 
 #pragma once
 
+#include <vk_descriptors.h>
 #include <vk_types.h>
 
-#include <vk_descriptors.h>
 #include <vk_pipelines.h>
 #include <vk_loader.h>
 
 constexpr unsigned int FRAME_OVERLAP = 2;
+
+struct FrameData {
+	VkCommandPool commandPool;
+	VkCommandBuffer mainCommandBuffer;
+
+	VkSemaphore swapchainSemaphore;
+	VkFence renderFence;
+
+	DeletionQueue _dQueue;
+	DescriptorAllocatorGrowable _frameDescriptors;
+};
 
 struct ComputePushConstants 
 {
@@ -66,7 +77,8 @@ public:
 	VkPipelineLayout _meshPipelineLayout;
 	VkPipeline _meshPipeline;
 
-
+	GPUSceneData sceneData;
+	VkDescriptorSetLayout _gpuSceneDataDescriptorLayout;
 
 	VkFence _immFence; // Immediate submit fence
 	VkCommandBuffer _immCommandBuffer;
@@ -99,6 +111,10 @@ public:
 
 	void immediate_submit(std::function<void(VkCommandBuffer cmdBfr)>&& function);
 	GPUMeshBuffers upload_mesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
+
+	AllocatedImage create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usageFlags, bool mipmaped = false);
+	AllocatedImage create_image(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usageFlags, bool mipmaped = false);
+	void destroy_image(const AllocatedImage& img);
 
 private:
 	void init_default_data();
@@ -133,4 +149,14 @@ private:
 	double _time = 0.0f;
 
 	bool resize_requested = false;
+
+	AllocatedImage _whiteImage;
+	AllocatedImage _blackImage;
+	AllocatedImage _greyImage;
+	AllocatedImage _errorCheckerboardImage;
+
+	VkSampler _defaultSamplerLinear;
+	VkSampler _defaultSamplerNearest;
+
+	VkDescriptorSetLayout _singleImageDescriptorLayout;
 };
