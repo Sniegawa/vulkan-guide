@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2023 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -39,7 +39,7 @@ extern "C" {
 #include <AppKit.h>
 #include <Cursor.h>
 #include <InterfaceKit.h>
-#if SDL_VIDEO_OPENGL
+#ifdef SDL_VIDEO_OPENGL
 #include <opengl/GLView.h>
 #endif
 #include "SDL_events.h"
@@ -99,7 +99,7 @@ class SDL_BWin : public BWindow
         _cur_view = NULL;
         _SDL_View = NULL;
 
-#if SDL_VIDEO_OPENGL
+#ifdef SDL_VIDEO_OPENGL
         _SDL_GLView = NULL;
         _gl_type = 0;
 #endif
@@ -123,10 +123,10 @@ class SDL_BWin : public BWindow
             _SDL_View = NULL;
         }
 
-#if SDL_VIDEO_OPENGL
+#ifdef SDL_VIDEO_OPENGL
         if (_SDL_GLView) {
-            if (SDL_Looper->GetCurrentContext() == _SDL_GLView)
-                SDL_Looper->SetCurrentContext(NULL);
+            if (SDL_Handler->GetCurrentContext() == _SDL_GLView)
+                SDL_Handler->SetCurrentContext(NULL);
             if (_SDL_GLView == _cur_view)
                 RemoveChild(_SDL_GLView);
             _SDL_GLView = NULL;
@@ -189,7 +189,7 @@ class SDL_BWin : public BWindow
     }
 
     /* * * * * OpenGL functionality * * * * */
-#if SDL_VIDEO_OPENGL
+#ifdef SDL_VIDEO_OPENGL
     BGLView *CreateGLView(Uint32 gl_flags)
     {
         Lock();
@@ -209,8 +209,8 @@ class SDL_BWin : public BWindow
     {
         Lock();
         if (_SDL_GLView != NULL) {
-            if (SDL_Looper->GetCurrentContext() == _SDL_GLView)
-                SDL_Looper->SetCurrentContext(NULL);
+            if (SDL_Handler->GetCurrentContext() == _SDL_GLView)
+                SDL_Handler->SetCurrentContext(NULL);
             _SDL_GLView = NULL;
             UpdateCurrentView();
             // _SDL_GLView deleted by HAIKU_GL_DeleteContext
@@ -476,7 +476,7 @@ class SDL_BWin : public BWindow
     BBitmap *GetBitmap() { return _bitmap; }
     BView *GetCurView() { return _cur_view; }
     SDL_BView *GetView() { return _SDL_View; }
-#if SDL_VIDEO_OPENGL
+#ifdef SDL_VIDEO_OPENGL
     BGLView *GetGLView()
     {
         return _SDL_GLView;
@@ -572,7 +572,7 @@ class SDL_BWin : public BWindow
         if (keyUtf8 != NULL) {
             msg.AddData("key-utf8", B_INT8_TYPE, (const void *)keyUtf8, len);
         }
-        SDL_Looper->PostMessage(&msg);
+        be_app->PostMessage(&msg, SDL_Handler);
     }
 
     void _RepaintEvent()
@@ -584,7 +584,7 @@ class SDL_BWin : public BWindow
     void _PostWindowEvent(BMessage &msg)
     {
         msg.AddInt32("window-id", _id);
-        SDL_Looper->PostMessage(&msg);
+        be_app->PostMessage(&msg, SDL_Handler);
     }
 
     /* Command methods (functions called upon by SDL) */
@@ -712,7 +712,7 @@ class SDL_BWin : public BWindow
 
     BView *_cur_view;
     SDL_BView *_SDL_View;
-#if SDL_VIDEO_OPENGL
+#ifdef SDL_VIDEO_OPENGL
     BGLView *_SDL_GLView;
     Uint32 _gl_type;
 #endif

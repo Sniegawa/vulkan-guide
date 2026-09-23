@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2023 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -33,14 +33,9 @@
 
 /*****************************************************************************************************/
 
-#include <stdint.h>
-
 #define bool SDL_bool
 #define true SDL_TRUE
 #define false SDL_FALSE
-
-typedef uint32_t uint32;
-typedef uint64_t uint64;
 
 #include "steam/controller_constants.h"
 #include "steam/controller_structs.h"
@@ -48,14 +43,14 @@ typedef uint64_t uint64;
 typedef struct SteamControllerStateInternal_t
 {
     // Controller Type for this Controller State
-    uint32 eControllerType;
+    Uint32 eControllerType;
 
     // If packet num matches that on your prior call, then the controller state hasn't been changed since
     // your last call and there is no need to process it
-    uint32 unPacketNum;
+    Uint32 unPacketNum;
 
     // bit flags for each of the buttons
-    uint64 ulButtons;
+    Uint64 ulButtons;
 
     // Left pad coordinates
     short sLeftPadX;
@@ -649,13 +644,6 @@ static void RotatePad(int *pX, int *pY, float flAngleInRad)
     *pX = (int)(SDL_cosf(flAngleInRad) * origX - SDL_sinf(flAngleInRad) * origY);
     *pY = (int)(SDL_sinf(flAngleInRad) * origX + SDL_cosf(flAngleInRad) * origY);
 }
-static void RotatePadShort(short *pX, short *pY, float flAngleInRad)
-{
-    short int origX = *pX, origY = *pY;
-
-    *pX = (short)(SDL_cosf(flAngleInRad) * origX - SDL_sinf(flAngleInRad) * origY);
-    *pY = (short)(SDL_sinf(flAngleInRad) * origX + SDL_cosf(flAngleInRad) * origY);
-}
 
 //---------------------------------------------------------------------------
 // Format the first part of the state packet
@@ -779,8 +767,15 @@ static void FormatStatePacketUntilGyro(SteamControllerStateInternal_t *pState, V
 //---------------------------------------------------------------------------
 static bool UpdateBLESteamControllerState(const uint8_t *pData, int nDataSize, SteamControllerStateInternal_t *pState)
 {
-    const float flRotationAngle = 0.261799f;
+    int nLeftPadX;
+    int nLeftPadY;
+    int nRightPadX;
+    int nRightPadY;
+    int nPadOffset;
     uint32_t ucOptionDataMask;
+
+    // 15 degrees in rad
+    const float flRotationAngle = 0.261799f;
 
     pState->unPacketNum++;
     ucOptionDataMask = (*pData++ & 0xF0);
@@ -810,7 +805,6 @@ static bool UpdateBLESteamControllerState(const uint8_t *pData, int nDataSize, S
     }
     if (ucOptionDataMask & k_EBLELeftTrackpadChunk) {
         int nLength = sizeof(pState->sLeftPadX) + sizeof(pState->sLeftPadY);
-        int nPadOffset;
         SDL_memcpy(&pState->sLeftPadX, pData, nLength);
         if (pState->ulButtons & STEAM_LEFTPAD_FINGERDOWN_MASK) {
             nPadOffset = 1000;
@@ -818,14 +812,15 @@ static bool UpdateBLESteamControllerState(const uint8_t *pData, int nDataSize, S
             nPadOffset = 0;
         }
 
-        RotatePadShort(&pState->sLeftPadX, &pState->sLeftPadY, -flRotationAngle);
-        pState->sLeftPadX = clamp(pState->sLeftPadX + nPadOffset, SDL_MIN_SINT16, SDL_MAX_SINT16);
-        pState->sLeftPadY = clamp(pState->sLeftPadY + nPadOffset, SDL_MIN_SINT16, SDL_MAX_SINT16);
+        nLeftPadX = pState->sLeftPadX;
+        nLeftPadY = pState->sLeftPadY;
+        RotatePad(&nLeftPadX, &nLeftPadY, -flRotationAngle);
+        pState->sLeftPadX = (short)clamp(nLeftPadX + nPadOffset, SDL_MIN_SINT16, SDL_MAX_SINT16);
+        pState->sLeftPadY = (short)clamp(nLeftPadY + nPadOffset, SDL_MIN_SINT16, SDL_MAX_SINT16);
         pData += nLength;
     }
     if (ucOptionDataMask & k_EBLERightTrackpadChunk) {
         int nLength = sizeof(pState->sRightPadX) + sizeof(pState->sRightPadY);
-        int nPadOffset = 0;
 
         SDL_memcpy(&pState->sRightPadX, pData, nLength);
 
@@ -835,9 +830,11 @@ static bool UpdateBLESteamControllerState(const uint8_t *pData, int nDataSize, S
             nPadOffset = 0;
         }
 
-        RotatePadShort(&pState->sRightPadX, &pState->sRightPadY, flRotationAngle);
-        pState->sRightPadX = clamp(pState->sRightPadX + nPadOffset, SDL_MIN_SINT16, SDL_MAX_SINT16);
-        pState->sRightPadY = clamp(pState->sRightPadY + nPadOffset, SDL_MIN_SINT16, SDL_MAX_SINT16);
+        nRightPadX = pState->sRightPadX;
+        nRightPadY = pState->sRightPadY;
+        RotatePad(&nRightPadX, &nRightPadY, flRotationAngle);
+        pState->sRightPadX = (short)clamp(nRightPadX + nPadOffset, SDL_MIN_SINT16, SDL_MAX_SINT16);
+        pState->sRightPadY = (short)clamp(nRightPadY + nPadOffset, SDL_MIN_SINT16, SDL_MAX_SINT16);
         pData += nLength;
     }
     if (ucOptionDataMask & k_EBLEIMUAccelChunk) {
@@ -977,7 +974,7 @@ static SDL_bool HIDAPI_DriverSteam_InitDevice(SDL_HIDAPI_Device *device)
     SDL_DriverSteam_Context *ctx;
 
     ctx = (SDL_DriverSteam_Context *)SDL_calloc(1, sizeof(*ctx));
-    if (ctx == NULL) {
+    if (!ctx) {
         SDL_OutOfMemory();
         return SDL_FALSE;
     }
@@ -1074,9 +1071,9 @@ static int HIDAPI_DriverSteam_SetSensorsEnabled(SDL_HIDAPI_Device *device, SDL_J
     SDL_memset(buf, 0, 65);
     buf[1] = ID_SET_SETTINGS_VALUES;
     if (enabled) {
-        ADD_SETTING(SETTING_GYRO_MODE, 0x18 /* SETTING_GYRO_SEND_RAW_ACCEL | SETTING_GYRO_MODE_SEND_RAW_GYRO */);
+        ADD_SETTING(SETTING_IMU_MODE, SETTING_GYRO_MODE_SEND_RAW_ACCEL | SETTING_GYRO_MODE_SEND_RAW_GYRO);
     } else {
-        ADD_SETTING(SETTING_GYRO_MODE, 0x00 /* SETTING_GYRO_MODE_OFF */);
+        ADD_SETTING(SETTING_IMU_MODE, SETTING_GYRO_MODE_OFF);
     }
     buf[2] = nSettings * 3;
     if (SetFeatureReport(device->dev, buf, 3 + nSettings * 3) < 0) {
@@ -1109,7 +1106,7 @@ static SDL_bool HIDAPI_DriverSteam_UpdateDevice(SDL_HIDAPI_Device *device)
             break;
         }
 
-        if (joystick == NULL) {
+        if (!joystick) {
             continue;
         }
 

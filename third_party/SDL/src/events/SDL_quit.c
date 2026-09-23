@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2023 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -49,8 +49,10 @@ static SDL_bool send_foregrounding_pending = SDL_FALSE;
 
 static void SDL_HandleSIG(int sig)
 {
-    /* Reset the signal handler */
+#ifndef HAVE_SIGACTION
+    /* Reset the signal handler if it was installed with signal() */
     (void)signal(sig, SDL_HandleSIG);
+#endif
 
     /* Send a quit event next time the event loop pumps. */
     /* We can't send it in signal handler; SDL_malloc() might be interrupted! */
@@ -85,7 +87,7 @@ static void SDL_EventSignal_Init(const int sig)
         action.sa_handler = SDL_HandleSIG;
         sigaction(sig, &action, NULL);
     }
-#elif HAVE_SIGNAL_H
+#elif defined(HAVE_SIGNAL_H)
     void (*ohandler)(int) = signal(sig, SDL_HandleSIG);
     if (ohandler != SIG_DFL) {
         signal(sig, ohandler);
@@ -102,7 +104,7 @@ static void SDL_EventSignal_Quit(const int sig)
         action.sa_handler = SIG_DFL;
         sigaction(sig, &action, NULL);
     }
-#elif HAVE_SIGNAL_H
+#elif defined(HAVE_SIGNAL_H)
     void (*ohandler)(int) = signal(sig, SIG_DFL);
     if (ohandler != SDL_HandleSIG) {
         signal(sig, ohandler);

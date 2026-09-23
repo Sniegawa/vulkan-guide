@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2023 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -22,11 +22,13 @@
 #include "../SDL_sysvideo.h"
 #define INCL_WIN
 #define INCL_GPI
+#define INCL_DOSERRORS
+#define INCL_OS2MM
+#define INCL_MM_OS2
 #include <os2.h>
 #define  _MEERROR_H_
 #include <mmioos2.h>
 #include <os2me.h>
-#define INCL_MM_OS2
 #include <dive.h>
 #include <fourcc.h>
 #include "SDL_os2output.h"
@@ -101,7 +103,7 @@ PVODATA voOpen(void)
 {
     PVODATA pVOData = SDL_calloc(1, sizeof(VODATA));
 
-    if (pVOData == NULL) {
+    if (!pVOData) {
         SDL_OutOfMemory();
         return NULL;
     }
@@ -277,7 +279,7 @@ static VOID voVideoBufFree(PVODATA pVOData)
         pVOData->ulDIVEBufNum = 0;
     }
 
-    if (pVOData->pBuffer != NULL) {
+    if (pVOData->pBuffer) {
         ulRC = DosFreeMem(pVOData->pBuffer);
         if (ulRC != NO_ERROR) {
             debug_os2("DosFreeMem(), rc = %u", ulRC);
@@ -296,11 +298,11 @@ static BOOL voUpdate(PVODATA pVOData, HWND hwnd, SDL_Rect *pSDLRects,
         return FALSE;
     }
 
-    if (pSDLRects != NULL) {
+    if (pSDLRects) {
         PBYTE   pbLineMask;
 
         pbLineMask = SDL_stack_alloc(BYTE, pVOData->ulHeight);
-        if (pbLineMask == NULL) {
+        if (!pbLineMask) {
             debug_os2("Not enough stack size");
             return FALSE;
         }

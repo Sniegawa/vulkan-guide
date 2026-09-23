@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2023 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -63,11 +63,11 @@ extern __inline int _SDL_xchg_watcom(volatile int *a, int v);
 /* This function is where all the magic happens... */
 SDL_bool SDL_AtomicTryLock(SDL_SpinLock *lock)
 {
-#if SDL_ATOMIC_DISABLED
+#ifdef SDL_ATOMIC_DISABLED
     /* Terrible terrible damage */
     static SDL_mutex *_spinlock_mutex;
 
-    if (_spinlock_mutex == NULL) {
+    if (!_spinlock_mutex) {
         /* Race condition on first lock... */
         _spinlock_mutex = SDL_CreateMutex();
     }
@@ -81,10 +81,10 @@ SDL_bool SDL_AtomicTryLock(SDL_SpinLock *lock)
         return SDL_FALSE;
     }
 
-#elif HAVE_GCC_ATOMICS || HAVE_GCC_SYNC_LOCK_TEST_AND_SET
+#elif defined(HAVE_GCC_ATOMICS) || defined(HAVE_GCC_SYNC_LOCK_TEST_AND_SET)
     return __sync_lock_test_and_set(lock, 1) == 0;
 
-#elif defined(_MSC_VER) && (defined(_M_ARM) || defined(_M_ARM64))
+#elif defined(_MSC_VER) && (defined(_M_ARM) || defined(_M_ARM64) || defined(_M_ARM64EC))
     return _InterlockedExchange_acq(lock, 1) == 0;
 
 #elif defined(_MSC_VER)
@@ -186,26 +186,19 @@ void SDL_AtomicLock(SDL_SpinLock *lock)
 
 void SDL_AtomicUnlock(SDL_SpinLock *lock)
 {
-#if HAVE_GCC_ATOMICS || HAVE_GCC_SYNC_LOCK_TEST_AND_SET
+#if defined(HAVE_GCC_ATOMICS) || defined(HAVE_GCC_SYNC_LOCK_TEST_AND_SET)
     __sync_lock_release(lock);
 
-#elif defined(_MSC_VER) && (defined(_M_ARM) || defined(_M_ARM64))
+#elif defined(_MSC_VER) && (defined(_M_ARM) || defined(_M_ARM64) || defined(_M_ARM64EC))
     _InterlockedExchange_rel(lock, 0);
-
-#elif defined(_MSC_VER)
-    _ReadWriteBarrier();
-    *lock = 0;
-
-#elif defined(__WATCOMC__) && defined(__386__)
-    SDL_CompilerBarrier();
-    *lock = 0;
 
 #elif defined(__SOLARIS__)
     /* Used for Solaris when not using gcc. */
-    *lock = 0;
     membar_producer();
+    *lock = 0;
 
 #else
+    SDL_MemoryBarrierRelease();
     *lock = 0;
 #endif
 }

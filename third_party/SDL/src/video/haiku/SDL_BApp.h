@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2023 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -24,7 +24,7 @@
 #include <Path.h>
 #include <InterfaceKit.h>
 #include <LocaleRoster.h>
-#if SDL_VIDEO_OPENGL
+#ifdef SDL_VIDEO_OPENGL
 #include <OpenGLKit.h>
 #endif
 
@@ -49,7 +49,7 @@ extern "C" {
 #include <vector>
 
 /* Forward declarations */
-class SDL_BLooper;
+class SDL_BHandler;
 class SDL_BWin;
 
 /* Message constants */
@@ -76,21 +76,21 @@ enum ToSDL
 };
 
 
-extern "C" SDL_BLooper *SDL_Looper;
+extern "C" SDL_BHandler *SDL_Handler;
 
 
-/* Create a descendant of BLooper */
-class SDL_BLooper : public BLooper
+/* Create a descendant of BHandler */
+class SDL_BHandler : public BHandler
 {
   public:
-    SDL_BLooper(const char* name) : BLooper(name)
+    SDL_BHandler(const char* name) : BHandler(name)
     {
-#if SDL_VIDEO_OPENGL
+#ifdef SDL_VIDEO_OPENGL
         _current_context = NULL;
 #endif
     }
 
-    virtual ~SDL_BLooper()
+    virtual ~SDL_BHandler()
     {
     }
 
@@ -164,7 +164,7 @@ class SDL_BLooper : public BLooper
             break;
 
         default:
-            BLooper::MessageReceived(message);
+            BHandler::MessageReceived(message);
             break;
         }
     }
@@ -199,7 +199,7 @@ class SDL_BLooper : public BLooper
         return _window_map[winID];
     }
 
-#if SDL_VIDEO_OPENGL
+#ifdef SDL_VIDEO_OPENGL
     BGLView *GetCurrentContext()
     {
         return _current_context;
@@ -419,7 +419,7 @@ class SDL_BLooper : public BLooper
     /* Members */
     std::vector<SDL_Window *> _window_map; /* Keeps track of SDL_Windows by index-id */
 
-#if SDL_VIDEO_OPENGL
+#ifdef SDL_VIDEO_OPENGL
     BGLView *_current_context;
 #endif
 };
