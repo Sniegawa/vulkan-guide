@@ -24,8 +24,11 @@
 #define VK_CHECK(x)                                                     \
     do {                                                                \
         VkResult err = x;                                               \
-        if (err) {                                                      \
+        if (static_cast<int>(err) < 0) {                                \
             fmt::println("Detected Vulkan error: {}", string_VkResult(err)); \
             abort();                                                    \
+        }                                                               \
+        else if(static_cast<int>(err) != 0) {                            \
+            fmt::println("Detected Vulkan non-0 return value: {}", string_VkResult(err)); \
         }                                                               \
     } while (0)
