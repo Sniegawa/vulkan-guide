@@ -21,6 +21,13 @@ struct FrameData
     DeletionQueue _deletionQueue;
 };
 
+struct ComputePushConstants {
+    glm::vec4 data1 = glm::vec4(0.0f);
+    glm::vec4 data2 = glm::vec4(0.0f);
+    glm::vec4 data3 = glm::vec4(0.0f);
+    glm::vec4 data4 = glm::vec4(0.0f);
+};
+
 const unsigned int FRAME_OVERLAP = 2;
 
 class VulkanEngine {

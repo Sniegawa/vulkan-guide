@@ -136,7 +136,17 @@ void VulkanEngine::draw_background(VkCommandBuffer cmd)
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _gradientPipeline);
 
+    // Bind the descriptor set containing the draw image for compute pipeline
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _gradientPipelineLayout, 0, 1, &_DrawImageDescriptors, 0, nullptr);
+
+    // Bind Push constants
+    
+    ComputePushConstants pc;
+    pc.data1 = glm::vec4(1, 0, 0, 1);
+    pc.data2 = glm::vec4(0, 0, 1, 1);
+
+    vkCmdPushConstants(cmd, _gradientPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &pc);
+
 
     vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 16.0), std::ceil(_drawExtent.height / 16.0), 1);
 }
@@ -519,16 +529,26 @@ void VulkanEngine::init_descriptors()
 
 void VulkanEngine::init_background_pipelines()
 {
+    // Pipeline layout creations
     VkPipelineLayoutCreateInfo computeLayout{};
     computeLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     computeLayout.pNext = nullptr;
     computeLayout.pSetLayouts = &_drawImageDescriptorLayout;
     computeLayout.setLayoutCount = 1;
 
+    // Push constants
+    VkPushConstantRange pushConstant{};
+    pushConstant.offset = 0;
+    pushConstant.size = sizeof(ComputePushConstants);
+    pushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    computeLayout.pPushConstantRanges = &pushConstant;
+    computeLayout.pushConstantRangeCount = 1;
+
     VK_CHECK(vkCreatePipelineLayout(_device, &computeLayout, nullptr, &_gradientPipelineLayout));
 
     VkShaderModule computeDrawShader;
-    if(!vkutil::load_shader_module("../shaders/gradient.comp.spv", _device, &computeDrawShader))
+    if(!vkutil::load_shader_module("../shaders/gradient_color.comp.spv", _device, &computeDrawShader))
     {
         fmt::print("ERROR when building the compute shader");
     }
