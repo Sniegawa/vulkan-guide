@@ -16,6 +16,8 @@ struct FrameData
 
     VkSemaphore _swapchainSemaphore, _renderSemaphore;
     VkFence _renderFence;
+
+    DeletionQueue _deletionQueue;
 };
 
 const unsigned int FRAME_OVERLAP = 2;
@@ -59,6 +61,8 @@ public:
 	//draw loop
 	void draw();
 
+    void draw_background(VkCommandBuffer cmd);
+
 	//run main loop
 	void run();
 
@@ -72,4 +76,12 @@ private:
     void destroy_swapchain();
 
     FrameData& get_current_frame() { return _frames[_frameNumber % FRAME_OVERLAP]; }
+
+private:
+    DeletionQueue _mainDeletionQueue;
+
+    VmaAllocator _allocator;
+
+    AllocatedImage _drawImage;
+    VkExtent2D _drawExtent;
 };

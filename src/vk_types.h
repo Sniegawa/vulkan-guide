@@ -19,6 +19,7 @@
 
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
+#include <vulkan/vulkan_core.h>
 
 
 #define VK_CHECK(x)                                                     \
@@ -32,3 +33,33 @@
             fmt::println("Detected Vulkan non-0 return value: {}", string_VkResult(err)); \
         }                                                               \
     } while (0)
+
+
+struct DeletionQueue
+{
+    std::deque<std::function<void()>> deletors;
+
+    void push_function(std::function<void()>&& function)
+    {
+        deletors.push_back(function);
+    }
+
+    void flush()
+    {
+        // Execute function in reverse
+        for (auto it = deletors.rbegin(); it != deletors.rend(); it++)
+        {
+            (*it)();
+        }
+
+        deletors.clear();
+    }
+};
+
+struct AllocatedImage {
+    VkImage image;
+    VkImageView imageView;
+    VmaAllocation allocation;
+    VkExtent3D imageExtent;
+    VkFormat imageFormat;
+};
