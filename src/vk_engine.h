@@ -9,6 +9,8 @@
 
 #include "VkBootstrap.h"
 #include "vk_descriptors.h"
+#include "vk_pipelines.h"
+
 
 struct FrameData
 {
@@ -65,6 +67,8 @@ public:
     VkPipeline _gradientPipeline;
     VkPipelineLayout _gradientPipelineLayout;
 
+    VkPipelineLayout _trianglePipelineLayout;
+    VkPipeline _trianglePipeline;
 
     VkFence _immFence;
     VkCommandBuffer _immCommandBuffer;
@@ -84,6 +88,7 @@ public:
 	//draw loop
 	void draw();
 
+    void draw_geometry(VkCommandBuffer cmd);
     void draw_background(VkCommandBuffer cmd);
 
     void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
@@ -102,6 +107,7 @@ private:
 
     void init_pipelines();
     void init_background_pipelines();
+    void init_triangle_pipeline();
 
     void init_imgui();
 
