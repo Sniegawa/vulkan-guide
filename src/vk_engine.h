@@ -101,6 +101,8 @@ public:
 
     void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
+    GPUMeshBuffers uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
+
 private:
     void init_vulkan();
     void init_swapchain();
@@ -124,7 +126,6 @@ private:
 
     void destroy_buffer(const AllocatedBuffer& buffer);
 
-    GPUMeshBuffers uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
 
     FrameData& get_current_frame() { return _frames[_frameNumber % FRAME_OVERLAP]; }
 
