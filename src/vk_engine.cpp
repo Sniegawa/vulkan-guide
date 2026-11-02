@@ -9,6 +9,7 @@
 #include "vk_descriptors.h"
 #include "vk_loader.h"
 #include <alloca.h>
+#include <cmath>
 #include <cstring>
 #include <memory>
 #include <unistd.h>
@@ -48,7 +49,7 @@ void VulkanEngine::init()
     // We initialize SDL and create a window with it.
     SDL_Init(SDL_INIT_VIDEO);
 
-    SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
+    SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
     _window = SDL_CreateWindow(
         "Vulkan Engine",
@@ -197,8 +198,10 @@ void VulkanEngine::draw()
     VkResult acquireResult = vkAcquireNextImageKHR(_device, _swapchain, 1000000000, current_frame._swapchainSemaphore, nullptr, &swapchainImageIndex);
     
     if(acquireResult == VK_ERROR_OUT_OF_DATE_KHR)
-        std::cout << "OUT OF DATE SWAPCHAIN" << std::endl;
-
+    {
+        resize_requested = true;
+        return;
+    }
     // Command buffer stuff
     VkCommandBuffer cmd = current_frame._mainCommandBuffer;
 
@@ -207,8 +210,8 @@ void VulkanEngine::draw()
     // The flag tells the driver that this command buffer will only be submited once before resetting it
     VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-    _drawExtent.width = _drawImage.imageExtent.width;
-    _drawExtent.height = _drawImage.imageExtent.height;
+    _drawExtent.width = std::min(_swapchainExtent.width, _drawImage.imageExtent.width) * renderScale;
+    _drawExtent.height = std::min(_swapchainExtent.height, _drawImage.imageExtent.height) * renderScale;
 
 
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
@@ -266,7 +269,12 @@ void VulkanEngine::draw()
 
     presentInfo.pImageIndices = &swapchainImageIndex;
 
-    VK_CHECK(vkQueuePresentKHR(_graphicsQueue, &presentInfo));
+    VkResult presentResult = vkQueuePresentKHR(_graphicsQueue, &presentInfo);
+    if(presentResult == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        resize_requested = true;
+        return;
+    }
 
     _frameNumber++;
 }
@@ -304,12 +312,19 @@ void VulkanEngine::run()
             continue;
         }
 
+        if(resize_requested)
+            resize_swapchain();
+
         // ImGui new frame
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::ShowDemoWindow();
+        if(ImGui::Begin("Background"))
+        {
+            ImGui::SliderFloat("Render scale", &renderScale, 0.3f, 1.0f);
+        }
+        ImGui::End();
 
         ImGui::Render();
 
@@ -468,6 +483,22 @@ void VulkanEngine::init_swapchain()
         vkDestroyImageView(_device, _depthImage.imageView, nullptr);
         vmaDestroyImage(_allocator, _depthImage.image, _depthImage.allocation);
     });
+}
+
+void VulkanEngine::resize_swapchain()
+{
+    vkDeviceWaitIdle(_device);
+
+    destroy_swapchain();
+
+    int w, h;
+    SDL_GetWindowSize(_window, &w, &h);
+    _windowExtent.width = w;
+    _windowExtent.height = h;
+
+    create_swapchain(w, h);
+
+    resize_requested = false;
 }
 
 void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
