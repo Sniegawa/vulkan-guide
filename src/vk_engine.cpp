@@ -6,6 +6,7 @@
 #include "fmt/core.h"
 #include "vk_descriptors.h"
 #include <alloca.h>
+#include <cstring>
 
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
@@ -174,6 +175,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
     VkRect2D scissor = {};
     scissor.offset.x = 0;
+
     scissor.offset.y = 0;
     scissor.extent.width = _drawExtent.width;
     scissor.extent.height = _drawExtent.height;
@@ -740,6 +742,98 @@ void VulkanEngine::init_imgui()
 
 }
 
+/*
+VmaMemoryUsage could be
+- VMA_MEMORY_USAGE_GPU_ONLY- GPU vram, cant write from CPU
+- VMA_MEMORY_USAGE_CPU_ONLY - CPU ram, GPU can only* read from it (with performance hit
+- VMA_MEMORY_USAGE_CPU_TO_GPU - writeable from cpu, faster to access from GPU
+    from vulkan 1.2 GPU's have a small memory in vram that can be written into from CPU
+    and it's size can be manipulated with ReBAR
+- VMA_MEMORY_USAGE_GPU_TO_CPU - memory that can be safely read from CPU 
+*/
+AllocatedBuffer VulkanEngine::create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
+{
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.pNext = nullptr;
+
+    bufferInfo.size = allocSize;
+    bufferInfo.usage = usage;
+
+    VmaAllocationCreateInfo vmaallocInfo = {};
+    vmaallocInfo.usage = memoryUsage;
+
+    // This maps the CPU pointer automaticly so we can write to it from CPU
+    // (but only if usage allows it)
+    vmaallocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    AllocatedBuffer newBuffer;
+
+    VK_CHECK(vmaCreateBuffer(_allocator, &bufferInfo, &vmaallocInfo, &newBuffer.buffer, &newBuffer.allocation, &newBuffer.info));
+
+    return newBuffer;
+}
+
+// This is very bad design, this should be part of RAII of some kind of buffer class
+void VulkanEngine::destroy_buffer(const AllocatedBuffer& buffer)
+{
+    vmaDestroyBuffer(_allocator, buffer.buffer, buffer.allocation);
+}
+
+GPUMeshBuffers VulkanEngine::uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices)
+{
+    const size_t vertexBufferSize = vertices.size() * sizeof(Vertex);
+    const size_t indexBufferSize = indices.size() * sizeof(uint32_t);
+
+    GPUMeshBuffers newSurface;
+
+    newSurface.vertexBuffer = create_buffer(
+            vertexBufferSize,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY
+    );
+
+    VkBufferDeviceAddressInfo deviceAdressInfo = {};
+    deviceAdressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    deviceAdressInfo.pNext = nullptr;
+    deviceAdressInfo.buffer = newSurface.vertexBuffer.buffer;
+
+    newSurface.vertexBufferAddres = vkGetBufferDeviceAddress(_device, &deviceAdressInfo);
+
+    newSurface.indexBuffer = create_buffer(
+            indexBufferSize,
+            VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY
+    );
+
+    AllocatedBuffer staging = create_buffer(vertexBufferSize + indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_COPY);
+
+    void* data = staging.allocation->GetMappedData();
+
+    std::memcpy(data, vertices.data(), vertexBufferSize);
+
+    std::memcpy((char*)data + vertexBufferSize, indices.data(), indexBufferSize);
+
+    immediate_submit([&](VkCommandBuffer cmd) {
+        VkBufferCopy vertexCopy { 0 };
+        vertexCopy.dstOffset = 0;
+        vertexCopy.srcOffset = 0;
+        vertexCopy.size = vertexBufferSize;
+
+        vkCmdCopyBuffer(cmd, staging.buffer, newSurface.vertexBuffer.buffer, 1, &vertexCopy);
+
+        VkBufferCopy indexCopy{ 0 };
+        indexCopy.dstOffset = 0;
+        indexCopy.srcOffset = vertexBufferSize;
+        indexCopy.size = indexBufferSize;
+
+        vkCmdCopyBuffer(cmd, staging.buffer, newSurface.indexBuffer.buffer, 1, &indexCopy);
+
+    });
+
+    destroy_buffer(staging);
+
+    return newSurface;
+}
 
 void VulkanEngine::destroy_swapchain()
 {
