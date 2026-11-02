@@ -186,6 +186,31 @@ void PipelineBuilder::disable_blending()
     // no blending
     _colorBlendAttachment.blendEnable = VK_FALSE;
 }
+
+void PipelineBuilder::enable_blending_additive()
+{
+    _colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    _colorBlendAttachment.blendEnable = VK_TRUE;
+    _colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    _colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    _colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    _colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    _colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    _colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+}
+
+void PipelineBuilder::enable_blending_alphablend()
+{
+    _colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    _colorBlendAttachment.blendEnable = VK_TRUE;
+    _colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    _colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    _colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    _colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    _colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    _colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+}
+
 void PipelineBuilder::set_color_attachment_format(VkFormat format)
 {
     _colorAttachmentformat = format;
@@ -209,6 +234,28 @@ void PipelineBuilder::disable_depthtest()
     _depthStencil.minDepthBounds = 0.0f;
     _depthStencil.maxDepthBounds = 1.0f;
 }
-
+/*
+Possible VkCompareOp
+VK_COMPARE_OP_NEVER - always false
+VK_COMPARE_OP_LESS - reference < test
+VK_COMPARE_OP_EQUAL - refernce = test
+VK_COMPARE_OP_LESS_OR_EQUAL - reference <= test
+VK_COMPARE_OP_GREATER - reference > test
+VK_COMPARE_OP_NOT_EQUAL - reference =/= test
+VK_COMPARE_OP_GREATER_OR_EQUAL - reference >= test
+VK_COMPARE_OP_ALWAYS - always true
+*/
+void PipelineBuilder::enable_depthtest(bool depthWriteEnable, VkCompareOp op)
+{
+    _depthStencil.depthTestEnable = VK_TRUE;
+    _depthStencil.depthWriteEnable = depthWriteEnable;
+    _depthStencil.depthCompareOp = op;
+    _depthStencil.depthBoundsTestEnable = VK_FALSE;
+    _depthStencil.stencilTestEnable = VK_FALSE;
+    _depthStencil.front = {};
+    _depthStencil.back = {};
+    _depthStencil.minDepthBounds = 0.0f;
+    _depthStencil.maxDepthBounds = 1.0f;
+}
 
 };

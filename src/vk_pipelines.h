@@ -32,10 +32,16 @@ namespace vkutil {
         void set_polygon_mode(VkPolygonMode mode);
         void set_cull_mode(VkCullModeFlags cullmode, VkFrontFace frontFace);
         void set_multisampling_none();
+
         void disable_blending();
+        void enable_blending_additive();
+        void enable_blending_alphablend();
+
         void set_color_attachment_format(VkFormat format);
         void set_depth_format(VkFormat format);
+
         void disable_depthtest();
+        void enable_depthtest(bool depthWriteEnable, VkCompareOp op);
     };
 
 };
