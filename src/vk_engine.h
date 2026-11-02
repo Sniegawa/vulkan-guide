@@ -11,6 +11,8 @@
 #include "vk_descriptors.h"
 #include "vk_pipelines.h"
 
+#include "vk_loader.h"
+
 
 struct FrameData
 {
@@ -138,4 +140,6 @@ private:
 
     AllocatedImage _drawImage;
     VkExtent2D _drawExtent;
+
+    std::vector<std::shared_ptr<MeshAsset>> testMeshes;
 };

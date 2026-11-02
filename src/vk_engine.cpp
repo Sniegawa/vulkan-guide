@@ -4,7 +4,10 @@
 #include "VkBootstrap.h"
 #include "fastgltf/types.hpp"
 #include "fmt/core.h"
+#include "glm/ext/matrix_clip_space.hpp"
+#include "glm/ext/matrix_transform.hpp"
 #include "vk_descriptors.h"
+#include "vk_loader.h"
 #include <alloca.h>
 #include <cstring>
 #include <memory>
@@ -202,6 +205,20 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
     vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 
+    push_constants.vertexBuffer = testMeshes[2]->meshBuffers.vertexBufferAddres;
+
+    glm::mat4 view = glm::translate(glm::mat4(1.0f),glm::vec3{ 0, 0, -5});
+
+    glm::mat4 projection = glm::perspective(glm::radians(70.0f), (float)_drawExtent.width / (float)_drawExtent.height, 10000.0f, 0.01f);
+
+    projection[1][1] *= -1; // Flip the y
+
+    push_constants.worldMatrix = projection * view;
+
+    vkCmdPushConstants(cmd, _meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
+    vkCmdBindIndexBuffer(cmd, testMeshes[2]->meshBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+    vkCmdDrawIndexed(cmd, testMeshes[2]->surfaces[0].count, 1, testMeshes[2]->surfaces[0].startIndex, 0, 0);
 
     vkCmdEndRendering(cmd);
 }
@@ -965,4 +982,8 @@ void VulkanEngine::init_default_data()
         destroy_buffer(rectangle.indexBuffer);
         destroy_buffer(rectangle.vertexBuffer);
     });
+
+    testMeshes = loadGltfMeshes(this, "../assets/basicmesh.glb").value();
+
+
 }
