@@ -70,6 +70,9 @@ public:
     VkPipelineLayout _trianglePipelineLayout;
     VkPipeline _trianglePipeline;
 
+    VkPipelineLayout _meshPipelineLayout;
+    VkPipeline _meshPipeline;
+
     VkFence _immFence;
     VkCommandBuffer _immCommandBuffer;
     VkCommandPool _immCommandPool;
@@ -108,13 +111,16 @@ private:
     void init_pipelines();
     void init_background_pipelines();
     void init_triangle_pipeline();
+    void init_mesh_pipeline();
+
+    void init_default_data();
 
     void init_imgui();
 
     void create_swapchain(uint32_t width, uint32_t height);
     void destroy_swapchain();
 
-    AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+    AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags allocFlags = 0);
 
     void destroy_buffer(const AllocatedBuffer& buffer);
 
@@ -126,6 +132,8 @@ private:
     DeletionQueue _mainDeletionQueue;
 
     VmaAllocator _allocator;
+
+    GPUMeshBuffers rectangle;
 
     AllocatedImage _drawImage;
     VkExtent2D _drawExtent;
