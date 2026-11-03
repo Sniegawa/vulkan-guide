@@ -69,6 +69,8 @@ public:
     GPUSceneData sceneData;
     VkDescriptorSetLayout _gpuSceneDataDescriptorLayout;
 
+    VkDescriptorSetLayout _singleImageDescriptorLayout;
+
     // ------ PIPELINES ------ 
     VkPipeline _gradientPipeline;
     VkPipelineLayout _gradientPipelineLayout;
@@ -105,6 +107,10 @@ public:
     void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
     GPUMeshBuffers uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
+
+    AllocatedImage create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+    AllocatedImage create_image(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+    void destroy_image(const AllocatedImage& image);
 
 private:
     void init_vulkan();
@@ -148,6 +154,6 @@ private:
 
     bool resize_requested = false;
 
-
-
+    AllocatedImage _whiteImage, _blackImage, _greyImage, _errorCheckerboardImage;
+    VkSampler _defaultSamplerLinear, _defaultSamplerNearest;
 };
