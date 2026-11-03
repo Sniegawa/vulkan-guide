@@ -162,6 +162,19 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
+    AllocatedBuffer gpuSceneDataBuffer = create_buffer(sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT);
+    get_current_frame()._deletionQueue.push_function([=,this]() {
+        destroy_buffer(gpuSceneDataBuffer);
+    });
+
+    GPUSceneData* sceneUniformData = static_cast<GPUSceneData*>(gpuSceneDataBuffer.allocation->GetMappedData());
+    *sceneUniformData = sceneData;
+
+    VkDescriptorSet globalDescriptor = get_current_frame()._frameDescriptors.allocate(_device, _gpuSceneDataDescriptorLayout);
+
+    DescriptorWriter writer;
+    writer.write_buffer(0, gpuSceneDataBuffer.buffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+    writer.update_set(_device, globalDescriptor);
 
     GPUDrawPushConstants push_constants;
     push_constants.vertexBuffer = testMeshes[2]->meshBuffers.vertexBufferAddres;
@@ -190,6 +203,7 @@ void VulkanEngine::draw()
     VK_CHECK(vkWaitForFences(_device, 1, &current_frame._renderFence, true, 1000000000));
 
     current_frame._deletionQueue.flush();
+    current_frame._frameDescriptors.clear_pools(_device);
 
     VK_CHECK(vkResetFences(_device, 1, &current_frame._renderFence));
 
@@ -592,27 +606,41 @@ void VulkanEngine::init_descriptors()
 
     _DrawImageDescriptors = globalDescriptorAllocator.allocate(_device, _drawImageDescriptorLayout);
 
-    VkDescriptorImageInfo imgInfo{};
-    imgInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-    imgInfo.imageView = _drawImage.imageView;
 
-    VkWriteDescriptorSet drawImageWrite{};
-    drawImageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    drawImageWrite.pNext = nullptr;
+    DescriptorWriter writer;
+    writer.write_image(0, _drawImage.imageView, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
-    drawImageWrite.dstBinding = 0;
-    drawImageWrite.dstSet = _DrawImageDescriptors;
-    drawImageWrite.descriptorCount = 1;
-    drawImageWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    drawImageWrite.pImageInfo = &imgInfo;
-
-    vkUpdateDescriptorSets(_device, 1, &drawImageWrite, 0, nullptr);
+    writer.update_set(_device, _DrawImageDescriptors);
 
     _mainDeletionQueue.push_function([&]() {
         globalDescriptorAllocator.destroy_pool(_device);
 
         vkDestroyDescriptorSetLayout(_device, _drawImageDescriptorLayout, nullptr);
     });
+
+    for(int i = 0; i < FRAME_OVERLAP; i++)
+    {
+        std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> frame_sizes = {
+            { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3},
+            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3},
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3},
+            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
+        };
+
+        _frames[i]._frameDescriptors = DescriptorAllocatorGrowable{};
+        _frames[i]._frameDescriptors.init(_device, 1000, frame_sizes);
+
+        _mainDeletionQueue.push_function([&, i]() {
+            _frames[i]._frameDescriptors.destroy_pools(_device);
+        });
+    }
+
+    {
+        DescriptorLayoutBuilder builder;
+        builder.add_binding(0,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        _gpuSceneDataDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+    }
+
 }
 
 void VulkanEngine::init_background_pipelines()
@@ -798,12 +826,16 @@ void VulkanEngine::init_imgui()
 
 /*
 VmaMemoryUsage could be
+- VMA_MEMORY_USAGE_AUTO - automatic (BEST AND PREFERED)
 - VMA_MEMORY_USAGE_GPU_ONLY- GPU vram, cant write from CPU
 - VMA_MEMORY_USAGE_CPU_ONLY - CPU ram, GPU can only* read from it (with performance hit
 - VMA_MEMORY_USAGE_CPU_TO_GPU - writeable from cpu, faster to access from GPU
     from vulkan 1.2 GPU's have a small memory in vram that can be written into from CPU
     and it's size can be manipulated with ReBAR
 - VMA_MEMORY_USAGE_GPU_TO_CPU - memory that can be safely read from CPU 
+
+To have memory mapped to host acces you should youse those allocFlags
+VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
 */
 AllocatedBuffer VulkanEngine::create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags allocFlags)
 {

@@ -2,6 +2,7 @@
 // or project specific include files.
 #pragma once
 
+#include "glm/ext/vector_float4.hpp"
 #include <memory>
 #include <optional>
 #include <string>
@@ -89,4 +90,14 @@ struct GPUDrawPushConstants
 {
     glm::mat4 worldMatrix;
     VkDeviceAddress vertexBuffer;
+};
+
+struct GPUSceneData
+{
+    glm::mat4 view;
+    glm::mat4 proj;
+    glm::mat4 viewProj; // Redundant
+    glm::vec4 ambientColor;
+    glm::vec4 sunlightDirection;
+    glm::vec4 sunlightColor;
 };

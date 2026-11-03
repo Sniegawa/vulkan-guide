@@ -23,6 +23,7 @@ struct FrameData
     VkFence _renderFence;
 
     DeletionQueue _deletionQueue;
+    DescriptorAllocatorGrowable _frameDescriptors;
 };
 
 struct ComputePushConstants {
@@ -64,6 +65,9 @@ public:
 
     VkDescriptorSet _DrawImageDescriptors;
     VkDescriptorSetLayout _drawImageDescriptorLayout;
+
+    GPUSceneData sceneData;
+    VkDescriptorSetLayout _gpuSceneDataDescriptorLayout;
 
     // ------ PIPELINES ------ 
     VkPipeline _gradientPipeline;
@@ -143,4 +147,7 @@ private:
     std::vector<std::shared_ptr<MeshAsset>> testMeshes;
 
     bool resize_requested = false;
+
+
+
 };
