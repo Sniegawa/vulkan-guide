@@ -23,8 +23,117 @@
 #include <fastgltf/glm_element_traits.hpp>
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
+#include <vulkan/vulkan_core.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 
+std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& asset, fastgltf::Image& image)
+{
+    AllocatedImage newImage = {};
+
+    int width, height, nrChannels;
+
+    
+
+    std::visit(
+            fastgltf::visitor {
+                [](auto& arg) {},
+                [&](fastgltf::sources::URI& filePath)
+                {
+                    assert(filePath.fileByteOffset == 0);
+                    assert(filePath.uri.isLocalPath());
+
+                    const std::string path(filePath.uri.path().begin(),
+                            filePath.uri.path().end()); // ???
+                    
+                    unsigned char* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 4);
+                    if(data)
+                    {
+                        VkExtent3D imagesSize;
+                        imagesSize.width = width;
+                        imagesSize.height = height;
+                        imagesSize.depth = 1;
+
+                        newImage = engine->create_image(data, imagesSize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+
+                        stbi_image_free(data);
+                    }
+                },
+                [&](fastgltf::sources::Vector& vector)
+                {
+                    unsigned char* data = stbi_load_from_memory(
+                            reinterpret_cast<const stbi_uc*>(vector.bytes.data()),
+                            static_cast<int>(vector.bytes.size()),
+                            &width,
+                            &height,
+                            &nrChannels,
+                            4
+                    );
+                    if(data)
+                    {
+                        VkExtent3D imagesSize;
+                        imagesSize.width = width;
+                        imagesSize.height = height;
+                        imagesSize.depth = 1;
+
+                        newImage = engine->create_image(data, imagesSize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+
+                        stbi_image_free(data);
+                    }
+                },
+                [&](fastgltf::sources::BufferView& view)
+                {
+                    auto& bufferView = asset.bufferViews[view.bufferViewIndex];
+                    auto& buffer = asset.buffers[bufferView.bufferIndex];
+
+                    auto upload = [&](const std::byte* byte, size_t size)
+                    {
+                        unsigned char* data = stbi_load_from_memory(
+                                reinterpret_cast<const stbi_uc*>(byte), 
+                                static_cast<int>(size), 
+                                &width,
+                                &height,
+                                &nrChannels,
+                                4
+                        );
+
+                        if(!data) return;
+
+                        VkExtent3D imageSize;
+                        imageSize.width = width;
+                        imageSize.height = height;
+                        imageSize.depth = 1;
+
+                        
+                        newImage = engine->create_image(data, imageSize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+
+                        stbi_image_free(data);
+                    };
+
+                    std::visit(fastgltf::visitor {
+                        [](auto& arg) {},
+                        [&](fastgltf::sources::Vector& vector)
+                        {
+                            upload(vector.bytes.data() + bufferView.byteOffset, bufferView.byteLength);
+                        },
+                        [&](fastgltf::sources::Array& array)
+                        {
+                            upload(array.bytes.data() + bufferView.byteOffset, bufferView.byteLength);
+                        },
+                        [&](fastgltf::sources::ByteView& view)
+                        {
+                            upload(view.bytes.data() + bufferView.byteOffset, bufferView.byteLength);
+                        }
+                    },buffer.data);
+                },
+            },image.data);
+
+    if(newImage.image == VK_NULL_HANDLE)
+        return {};
+    else
+        return newImage;
+}
 
 std::shared_ptr<LoadedGLTF> loadGltf(VulkanEngine* engine, std::string_view filePath)
 {
@@ -84,7 +193,7 @@ std::shared_ptr<LoadedGLTF> loadGltf(VulkanEngine* engine, std::string_view file
         VkSampler newSampler;
         vkCreateSampler(engine->_device, &sampl, nullptr, &newSampler);
 
-        file.sampelers.push_back(newSampler);
+        file.samplers.push_back(newSampler);
     }
 
     std::vector<std::shared_ptr<MeshAsset>> meshes;
@@ -94,8 +203,18 @@ std::shared_ptr<LoadedGLTF> loadGltf(VulkanEngine* engine, std::string_view file
 
     for(fastgltf::Image& image : gltf.images)
     {
-        images.push_back(engine->_errorCheckerboardImage);
+        std::optional<AllocatedImage> img = load_image(engine, gltf, image);
 
+        if(img.has_value())
+        {
+            images.push_back(*img);
+            file.images[image.name.c_str()] = *img;
+        }
+        else
+        {
+            images.push_back(engine->_errorCheckerboardImage);
+            fmt::println("GLTF failed to load texture {}",image.name);
+        }
     }
 
     file.materialDataBuffer = engine->create_buffer(
@@ -145,8 +264,8 @@ std::shared_ptr<LoadedGLTF> loadGltf(VulkanEngine* engine, std::string_view file
             if(tex.imageIndex.has_value() && tex.imageIndex.value() < images.size())
                 materialResources.colorImage = images[gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].imageIndex.value()];
 
-            if(tex.samplerIndex.has_value() && tex.samplerIndex.value() < file.sampelers.size())
-                materialResources.colorSampler = file.sampelers[gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].samplerIndex.value()];
+            if(tex.samplerIndex.has_value() && tex.samplerIndex.value() < file.samplers.size())
+                materialResources.colorSampler = file.samplers[gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].samplerIndex.value()];
         }
 
         newMat->data = engine->metalRoughMaterial.write_material(engine->_device, passType, materialResources, file.descriptorPool);
@@ -331,5 +450,33 @@ VkSamplerMipmapMode extract_mipmap_mode(fastgltf::Filter filter)
         case fastgltf::Filter::LinearMipMapLinear:
         default:
             return VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    }
+}
+
+
+void LoadedGLTF::clearAll()
+{
+    VkDevice dv = creator->_device;
+
+    descriptorPool.destroy_pools(dv);
+    creator->destroy_buffer(materialDataBuffer);
+
+    for(auto& [k, v] : meshes)
+    {
+        creator->destroy_buffer(v->meshBuffers.indexBuffer);
+        creator->destroy_buffer(v->meshBuffers.vertexBuffer);
+    }
+
+    for(auto& [k, v] : images)
+    {
+        if(v.image == creator->_errorCheckerboardImage.image)
+            continue;
+
+        creator->destroy_image(v);
+    }
+
+    for(auto& sampler : samplers)
+    {
+        vkDestroySampler(dv, sampler, nullptr);
     }
 }

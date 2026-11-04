@@ -17,7 +17,7 @@ public:
 
     std::vector<std::shared_ptr<Node>> topNodes;
 
-    std::vector<VkSampler> sampelers;
+    std::vector<VkSampler> samplers;
 
     DescriptorAllocatorGrowable descriptorPool;
 
@@ -36,10 +36,7 @@ public:
     }
 
 private:
-    void clearAll()
-    {
-    
-    }
+    void clearAll();
 };
 
 std::shared_ptr<LoadedGLTF> loadGltf(VulkanEngine* engine,  std::string_view filePath);

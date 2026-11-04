@@ -163,6 +163,8 @@ public:
     void destroy_image(const AllocatedImage& image);
 
     AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags allocFlags = 0);
+
+    void destroy_buffer(const AllocatedBuffer& buffer);
 private:
     void init_vulkan();
     void init_swapchain();
@@ -183,7 +185,6 @@ private:
     void destroy_swapchain();
 
 
-    void destroy_buffer(const AllocatedBuffer& buffer);
 
 
     FrameData& get_current_frame() { return _frames[_frameNumber % FRAME_OVERLAP]; }
