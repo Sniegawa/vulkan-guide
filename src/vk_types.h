@@ -21,7 +21,8 @@
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
 #include <vulkan/vulkan_core.h>
-
+#include "Material.h"
+#include "vk_descriptors.h"
 
 #define VK_CHECK(x)                                                     \
     do {                                                                \
@@ -101,3 +102,132 @@ struct GPUSceneData
     glm::vec4 sunlightDirection;
     glm::vec4 sunlightColor;
 };
+
+enum class MaterialPass : uint8_t
+{
+    MainColor,
+    Transparent,
+    Other
+};
+
+struct MaterialPipeline
+{
+    VkPipeline pipeline;
+    VkPipelineLayout layout;
+};
+
+struct MaterialInstance
+{
+    MaterialPipeline* pipeline;
+    VkDescriptorSet materialSet;
+    MaterialPass passType;
+};
+
+struct GLTFMaterial
+{
+    MaterialInstance data;
+};
+
+struct RenderObject
+{
+    uint32_t indexCount;
+    uint32_t firstIndex;
+    VkBuffer indexBuffer;
+
+    MaterialInstance* material;
+
+    glm::mat4 transform;
+    VkDeviceAddress vertexBufferAddress;
+};
+
+
+struct DrawContext
+{
+    std::vector<RenderObject> OpaqueSurfaces;
+};
+
+
+class IRenderable
+{
+public:
+    virtual ~IRenderable() = default;
+    virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) = 0;
+};
+class Node : public IRenderable
+{
+public:
+    virtual ~Node() override = default;
+
+    std::weak_ptr<Node> parent;
+    std::vector<std::shared_ptr<Node>> children;
+    
+    glm::mat4 localTransform;
+    glm::mat4 worldTransform;
+
+    // Propagate movement to child nodes
+    void refreshTransform(const glm::mat4& parentMatrix)
+    {
+        worldTransform = parentMatrix * localTransform;
+        for(auto c : children)
+            c->refreshTransform(worldTransform);
+    }
+
+    virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) override
+    {
+        for(auto& c : children)
+            c->Draw(topMatrix, ctx);
+    }
+
+};
+
+struct GeoSurface
+{
+    uint32_t startIndex;
+    uint32_t count;
+    std::shared_ptr<GLTFMaterial> material;
+};
+
+struct MeshAsset
+{
+    std::string name;
+
+    std::vector<GeoSurface> surfaces;
+    GPUMeshBuffers meshBuffers;
+};
+
+
+
+class MeshNode : public Node
+{
+public:
+    virtual ~MeshNode() override = default;
+    std::shared_ptr<MeshAsset> mesh;
+
+    virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) override
+    {
+        if(!mesh) return;
+        glm::mat4 nodeMatrix = topMatrix * worldTransform;
+
+        for(auto& s : mesh->surfaces)
+        {
+            RenderObject def;
+            def.indexCount = s.count;
+            def.firstIndex = s.startIndex;
+            def.indexBuffer = mesh->meshBuffers.indexBuffer.buffer;
+            if (s.material)
+                def.material = &s.material->data;
+            else
+                def.material = nullptr;
+
+            def.transform = nodeMatrix;
+            def.vertexBufferAddress = mesh->meshBuffers.vertexBufferAddres;
+
+            ctx.OpaqueSurfaces.push_back(def);
+        }
+
+        Node::Draw(topMatrix, ctx);
+
+    }
+};
+
+

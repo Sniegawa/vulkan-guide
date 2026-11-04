@@ -17,11 +17,19 @@ add_executable (engine
   vk_loader.cpp
   camera.cpp
   camera.h
+  Material.h
+  IRenderable.h
+  Nodes.h
+  Nodes.cpp
+  DrawContext.h
+  LoadedGLTF.h
+  LoadedGLTF.cpp
 )
 
 set_property(TARGET engine PROPERTY CXX_STANDARD 20)
 target_compile_definitions(engine PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
 target_include_directories(engine PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+
 
 target_link_libraries(engine PUBLIC vma glm Vulkan::Vulkan fmt::fmt stb_image SDL2::SDL2 vkbootstrap imgui fastgltf::fastgltf)
 

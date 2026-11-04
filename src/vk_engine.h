@@ -3,16 +3,54 @@
 
 #pragma once
 
+#include <string>
 #include <vk_types.h>
 #include <vk_initializers.h>
 #include <vulkan/vulkan_core.h>
 
-#include "VkBootstrap.h"
-#include "vk_descriptors.h"
-#include "vk_pipelines.h"
-
 #include "vk_loader.h"
+#include "DrawContext.h"
+#include "LoadedGLTF.h"
+#include "Material.h"
+#include "camera.h"
+#include "glm/ext/vector_float4.hpp"
+#include "vk_descriptors.h"
 
+
+struct GLTFMetallic_Roughness
+{
+    MaterialPipeline opaquePipeline;
+    MaterialPipeline transparentPipeline;
+
+    VkDescriptorSetLayout materialLayout;
+
+    struct MaterialConstants
+    {
+        glm::vec4 colorFactors;
+        glm::vec4 metal_rough_factors;
+        // Padding because this structure will be bound to an Uniform Buffer, and in vulkan
+        // Binding an Uniform Buffer needs to meet a minimum requirement for alignment.
+        // 256 bytes which we get with this pad is a good default alignment
+        glm::vec4 pad[14];
+    };
+
+    struct MaterialResources
+    {
+        AllocatedImage colorImage;
+        VkSampler colorSampler;
+        AllocatedImage metalRoughImage;
+        VkSampler metalRoughSampler;
+        VkBuffer dataBuffer;
+        uint32_t dataBufferOffset;
+    };
+
+    DescriptorWriter writer;
+
+    void build_pipelines(VulkanEngine* engine);
+    void clear_resources(VkDevice device);
+
+    MaterialInstance write_material(VkDevice device, MaterialPass pass, const MaterialResources& resources, DescriptorAllocatorGrowable& descirptorAllocator);
+};
 
 struct FrameData
 {
@@ -61,7 +99,7 @@ public:
     VkQueue _graphicsQueue;
     uint32_t _graphicsQueueFamily;
 
-    DescriptorAllocator globalDescriptorAllocator;
+    DescriptorAllocatorGrowable globalDescriptorAllocator;
 
     VkDescriptorSet _DrawImageDescriptors;
     VkDescriptorSetLayout _drawImageDescriptorLayout;
@@ -70,6 +108,21 @@ public:
     VkDescriptorSetLayout _gpuSceneDataDescriptorLayout;
 
     VkDescriptorSetLayout _singleImageDescriptorLayout;
+
+
+    AllocatedImage _drawImage;
+    AllocatedImage _depthImage;
+    VkExtent2D _drawExtent;
+
+    AllocatedImage _whiteImage, _blackImage, _greyImage, _errorCheckerboardImage;
+
+    VkSampler _defaultSamplerLinear, _defaultSamplerNearest;
+
+
+    MaterialInstance defaultData;
+    GLTFMetallic_Roughness metalRoughMaterial;
+
+    std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> loadedScenes;
 
     // ------ PIPELINES ------ 
     VkPipeline _gradientPipeline;
@@ -112,6 +165,7 @@ public:
     AllocatedImage create_image(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
     void destroy_image(const AllocatedImage& image);
 
+    AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags allocFlags = 0);
 private:
     void init_vulkan();
     void init_swapchain();
@@ -131,12 +185,13 @@ private:
     void create_swapchain(uint32_t width, uint32_t height);
     void destroy_swapchain();
 
-    AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags allocFlags = 0);
 
     void destroy_buffer(const AllocatedBuffer& buffer);
 
 
     FrameData& get_current_frame() { return _frames[_frameNumber % FRAME_OVERLAP]; }
+
+    void update_scene();
 
 private:
     DeletionQueue _mainDeletionQueue;
@@ -145,15 +200,15 @@ private:
 
     GPUMeshBuffers rectangle;
 
-    AllocatedImage _drawImage;
-    AllocatedImage _depthImage;
-    VkExtent2D _drawExtent;
-    float renderScale = 1.0f;
+        float renderScale = 1.0f;
 
     std::vector<std::shared_ptr<MeshAsset>> testMeshes;
 
     bool resize_requested = false;
 
-    AllocatedImage _whiteImage, _blackImage, _greyImage, _errorCheckerboardImage;
-    VkSampler _defaultSamplerLinear, _defaultSamplerNearest;
+
+    DrawContext mainDrawContext;
+    std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
+
+    Camera mainCamera;
 };
