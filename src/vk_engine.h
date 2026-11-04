@@ -13,6 +13,15 @@
 #include "glm/ext/vector_float4.hpp"
 #include "vk_descriptors.h"
 
+struct EngineStats
+{
+    float frametime;
+    int triangle_count;
+    int drawcall_count;
+    float scene_update_time;
+    float mesh_draw_time;
+    float fps;
+};
 
 struct GLTFMetallic_Roughness
 {
@@ -132,6 +141,8 @@ public:
     VkCommandBuffer _immCommandBuffer;
     VkCommandPool _immCommandPool;
     
+
+    EngineStats stats;
 
 	struct SDL_Window* _window{ nullptr };
 

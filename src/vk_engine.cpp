@@ -136,6 +136,11 @@ void VulkanEngine::draw_background(VkCommandBuffer cmd)
 
 void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 {
+    stats.drawcall_count = 0;
+    stats.triangle_count = 0;
+
+    auto start = std::chrono::system_clock::now();
+
     VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(_depthImage.imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
@@ -210,6 +215,8 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
         vkCmdDrawIndexed(cmd, draw.indexCount, 1, draw.firstIndex, 0, 0);
 
+        stats.drawcall_count++;
+        stats.triangle_count += draw.indexCount / 3;
     };
 
 
@@ -222,6 +229,12 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
 
     vkCmdEndRendering(cmd);
+
+
+    auto end = std::chrono::system_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    stats.mesh_draw_time = elapsed.count() / 1000.0f;
+
 }
 
 
@@ -326,6 +339,7 @@ void VulkanEngine::draw()
 
 void VulkanEngine::update_scene()
 {
+    auto start = std::chrono::system_clock::now();
     mainCamera.update();
     mainDrawContext.OpaqueSurfaces.clear();
     mainDrawContext.TransparentSurfaces.clear();
@@ -349,7 +363,11 @@ void VulkanEngine::update_scene()
 
     
     loadedScenes["structure"]->Draw(glm::mat4(1.0f), mainDrawContext);
+    
 
+    auto end = std::chrono::system_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    stats.scene_update_time = elapsed.count() / 1000.0f;
 }
 
 void VulkanEngine::run()
@@ -359,6 +377,7 @@ void VulkanEngine::run()
 
     // main loop
     while (!bQuit) {
+        auto start = std::chrono::system_clock::now();
         // Handle events on queue
         while (SDL_PollEvent(&e) != 0) {
             // close the window when user alt-f4s or clicks the X button
@@ -399,9 +418,25 @@ void VulkanEngine::run()
         }
         ImGui::End();
 
+        if(ImGui::Begin("Stats"))
+        {
+            ImGui::Text("frametime %f ms", stats.frametime);
+            ImGui::Text("draw time %f ms", stats.mesh_draw_time);
+            ImGui::Text("FPS %f", stats.fps);
+            ImGui::Text("update time %f ms", stats.scene_update_time);
+            ImGui::Text("triangles %i", stats.triangle_count);
+            ImGui::Text("draws %i", stats.drawcall_count);
+        }
+        ImGui::End();
+
         ImGui::Render();
 
         draw();
+
+        auto end = std::chrono::system_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+        stats.frametime = elapsed.count() / 1000.0f;
+        stats.fps = 1000.0f / stats.frametime;
     }
 }
 /*
@@ -1184,7 +1219,8 @@ void VulkanEngine::init_default_data()
     //assert(structureFile);
 
     loadedScenes["structure"] = structureFile;
-}
+
+    }
 
 void VulkanEngine::cleanup()
 {

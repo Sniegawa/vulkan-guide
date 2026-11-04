@@ -34,60 +34,7 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
 
     int width, height, nrChannels;
 
-    
-
-    std::visit(
-            fastgltf::visitor {
-                [](auto& arg) {},
-                [&](fastgltf::sources::URI& filePath)
-                {
-                    assert(filePath.fileByteOffset == 0);
-                    assert(filePath.uri.isLocalPath());
-
-                    const std::string path(filePath.uri.path().begin(),
-                            filePath.uri.path().end()); // ???
-                    
-                    unsigned char* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 4);
-                    if(data)
-                    {
-                        VkExtent3D imagesSize;
-                        imagesSize.width = width;
-                        imagesSize.height = height;
-                        imagesSize.depth = 1;
-
-                        newImage = engine->create_image(data, imagesSize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
-
-                        stbi_image_free(data);
-                    }
-                },
-                [&](fastgltf::sources::Vector& vector)
-                {
-                    unsigned char* data = stbi_load_from_memory(
-                            reinterpret_cast<const stbi_uc*>(vector.bytes.data()),
-                            static_cast<int>(vector.bytes.size()),
-                            &width,
-                            &height,
-                            &nrChannels,
-                            4
-                    );
-                    if(data)
-                    {
-                        VkExtent3D imagesSize;
-                        imagesSize.width = width;
-                        imagesSize.height = height;
-                        imagesSize.depth = 1;
-
-                        newImage = engine->create_image(data, imagesSize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
-
-                        stbi_image_free(data);
-                    }
-                },
-                [&](fastgltf::sources::BufferView& view)
-                {
-                    auto& bufferView = asset.bufferViews[view.bufferViewIndex];
-                    auto& buffer = asset.buffers[bufferView.bufferIndex];
-
-                    auto upload = [&](const std::byte* byte, size_t size)
+    auto upload = [&](const std::byte* byte, size_t size)
                     {
                         unsigned char* data = stbi_load_from_memory(
                                 reinterpret_cast<const stbi_uc*>(byte), 
@@ -109,7 +56,49 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
                         newImage = engine->create_image(data, imageSize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
 
                         stbi_image_free(data);
-                    };
+    };
+
+    std::visit(
+            fastgltf::visitor {
+                [](auto& arg) { fmt::println("FALLBACK");},
+                [&](fastgltf::sources::URI& filePath)
+                {
+                    assert(filePath.fileByteOffset == 0);
+                    assert(filePath.uri.isLocalPath());
+                    fmt::println("URI");
+                    const std::string path(filePath.uri.path().begin(),
+                            filePath.uri.path().end()); // ???
+                    
+                    unsigned char* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 4);
+                    if(data)
+                    {
+                        VkExtent3D imagesSize;
+                        imagesSize.width = width;
+                        imagesSize.height = height;
+                        imagesSize.depth = 1;
+
+                        newImage = engine->create_image(data, imagesSize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+
+                        stbi_image_free(data);
+                    }
+                },
+                [&](fastgltf::sources::Vector& vector)
+                {
+                    upload(vector.bytes.data(), vector.bytes.size());
+                },
+                [&](fastgltf::sources::Array& array)
+                {
+                    upload(array.bytes.data(), array.bytes.size());
+                },
+                [&](fastgltf::sources::ByteView& b)
+                {
+                    upload(b.bytes.data(), b.bytes.size());
+                },
+                [&](fastgltf::sources::BufferView& view)
+                {
+                    auto& bufferView = asset.bufferViews[view.bufferViewIndex];
+                    auto& buffer = asset.buffers[bufferView.bufferIndex];
+
 
                     std::visit(fastgltf::visitor {
                         [](auto& arg) {},
