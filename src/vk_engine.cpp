@@ -195,7 +195,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
     projection[1][1] *= -1; // Flip the y
 
-    for(const RenderObject& draw : mainDrawContext.OpaqueSurfaces)
+    auto draw = [&](const RenderObject& draw)
     {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout, 0, 1, &globalDescriptor, 0, nullptr);
@@ -209,7 +209,16 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
         vkCmdPushConstants(cmd, draw.material->pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstatns);
 
         vkCmdDrawIndexed(cmd, draw.indexCount, 1, draw.firstIndex, 0, 0);
-    }
+
+    };
+
+
+    for(const auto& r : mainDrawContext.OpaqueSurfaces)
+       draw(r);
+   
+    for(const auto& r : mainDrawContext.TransparentSurfaces)
+        draw(r);
+
 
 
     vkCmdEndRendering(cmd);
@@ -319,6 +328,7 @@ void VulkanEngine::update_scene()
 {
     mainCamera.update();
     mainDrawContext.OpaqueSurfaces.clear();
+    mainDrawContext.TransparentSurfaces.clear();
 
     
 

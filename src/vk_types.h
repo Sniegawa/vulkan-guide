@@ -143,6 +143,7 @@ struct RenderObject
 struct DrawContext
 {
     std::vector<RenderObject> OpaqueSurfaces;
+    std::vector<RenderObject> TransparentSurfaces;
 };
 
 
@@ -221,7 +222,10 @@ public:
             def.transform = nodeMatrix;
             def.vertexBufferAddress = mesh->meshBuffers.vertexBufferAddres;
 
-            ctx.OpaqueSurfaces.push_back(def);
+            if(def.material->passType == MaterialPass::Transparent)
+                ctx.TransparentSurfaces.push_back(def);
+            else
+                ctx.OpaqueSurfaces.push_back(def);
         }
 
         Node::Draw(topMatrix, ctx);
