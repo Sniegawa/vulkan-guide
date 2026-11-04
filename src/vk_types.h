@@ -21,7 +21,6 @@
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
 #include <vulkan/vulkan_core.h>
-#include "Material.h"
 #include "vk_descriptors.h"
 
 #define VK_CHECK(x)                                                     \

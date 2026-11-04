@@ -1,9 +1,8 @@
 ﻿//> includes
 #include "vk_engine.h"
-#include "DrawContext.h"
-#include "Material.h"
-#include "Nodes.h"
 
+#include "SDL_events.h"
+#include "SDL_mouse.h"
 #include "SDL_video.h"
 #include "VkBootstrap.h"
 #include "fmt/core.h"
@@ -15,9 +14,7 @@
 #include <alloca.h>
 #include <cmath>
 #include <cstring>
-#include <memory>
 #include <unistd.h>
-#include <filesystem>
 
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
@@ -1265,7 +1262,7 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine *engine)
     pipelineBuilder.set_shaders(meshVertexShader, meshFragShader);
     pipelineBuilder.set_input_topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     pipelineBuilder.set_polygon_mode(VK_POLYGON_MODE_FILL);
-    pipelineBuilder.set_cull_mode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+    pipelineBuilder.set_cull_mode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
     pipelineBuilder.set_multisampling_none();
     pipelineBuilder.disable_blending();
     pipelineBuilder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);

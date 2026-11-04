@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-#include "Material.h"
 #include "fastgltf/types.hpp"
 #include <string_view>
 #include <vk_types.h>

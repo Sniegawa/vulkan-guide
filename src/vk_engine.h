@@ -9,9 +9,6 @@
 #include <vulkan/vulkan_core.h>
 
 #include "vk_loader.h"
-#include "DrawContext.h"
-#include "LoadedGLTF.h"
-#include "Material.h"
 #include "camera.h"
 #include "glm/ext/vector_float4.hpp"
 #include "vk_descriptors.h"

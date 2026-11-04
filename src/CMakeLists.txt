@@ -17,13 +17,6 @@ add_executable (engine
   vk_loader.cpp
   camera.cpp
   camera.h
-  Material.h
-  IRenderable.h
-  Nodes.h
-  Nodes.cpp
-  DrawContext.h
-  LoadedGLTF.h
-  LoadedGLTF.cpp
 )
 
 set_property(TARGET engine PROPERTY CXX_STANDARD 20)
