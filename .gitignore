@@ -3,3 +3,5 @@
 /assets/brickadia
 /.vs
 /out/build/x64-Debug
+/Release
+/Debug
