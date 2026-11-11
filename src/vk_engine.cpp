@@ -11,6 +11,7 @@
 #include "glm/packing.hpp"
 #include "vk_descriptors.h"
 #include "vk_loader.h"
+#include <algorithm>
 #include <alloca.h>
 #include <cmath>
 #include <cstring>
@@ -151,25 +152,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
 
     // Dynamic viewport and scissor
-    VkViewport viewport = {};
-    viewport.x = 0;
-    viewport.y = 0;
-    viewport.width = _drawExtent.width;
-    viewport.height = _drawExtent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-    VkRect2D scissor = {};
-    scissor.offset.x = 0;
-
-    scissor.offset.y = 0;
-    scissor.extent.width = _drawExtent.width;
-    scissor.extent.height = _drawExtent.height;
-
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
-
+    
     AllocatedBuffer gpuSceneDataBuffer = create_buffer(sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT);
     get_current_frame()._deletionQueue.push_function([=,this]() {
         destroy_buffer(gpuSceneDataBuffer);
@@ -199,14 +182,68 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     glm::mat4 projection = glm::perspective(glm::radians(70.0f), (float)_drawExtent.width / (float)_drawExtent.height, 10000.0f, 0.01f);
 
     projection[1][1] *= -1; // Flip the y
+    
+    std::vector<uint32_t> opaque_draws;
+    opaque_draws.reserve(mainDrawContext.OpaqueSurfaces.size());
+
+    for(uint32_t i = 0; i < mainDrawContext.OpaqueSurfaces.size(); i++)
+    {
+        opaque_draws.push_back(i);
+    }
+
+    std::sort(opaque_draws.begin(),opaque_draws.end(), [&](const auto& iA, const auto& iB) {
+        const RenderObject& A = mainDrawContext.OpaqueSurfaces[iA];
+        const RenderObject& B = mainDrawContext.OpaqueSurfaces[iB];
+        if(A.material == B.material)
+            return A.indexBuffer < B.indexBuffer;
+        else
+            return A.material < B.material;
+    });
+    
+    static MaterialPipeline* lastPipeline = nullptr;
+    static MaterialInstance* lastMaterial = nullptr;
+
+    static VkBuffer lastIndexBuffer = VK_NULL_HANDLE;
+
 
     auto draw = [&](const RenderObject& draw)
     {
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout, 0, 1, &globalDescriptor, 0, nullptr);
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout, 1, 1, &draw.material->materialSet, 0, nullptr);
+        if(draw.material != lastMaterial)
+        {
+            lastMaterial = draw.material;
+            if(draw.material->pipeline != lastPipeline)
+            {
+                lastPipeline = draw.material->pipeline;
+                vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
+                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout, 0, 1, &globalDescriptor, 0, nullptr);
 
-        vkCmdBindIndexBuffer(cmd, draw.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+                VkViewport viewport = {};
+                viewport.x = 0;
+                viewport.y = 0;
+                viewport.width = _drawExtent.width;
+                viewport.height = _drawExtent.height;
+                viewport.minDepth = 0.0f;
+                viewport.maxDepth = 1.0f;
+
+                vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+                VkRect2D scissor = {};
+                scissor.offset.x = 0;
+
+                scissor.offset.y = 0;
+                scissor.extent.width = _drawExtent.width;
+                scissor.extent.height = _drawExtent.height;
+
+                vkCmdSetScissor(cmd, 0, 1, &scissor);
+            }
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout, 1, 1, &draw.material->materialSet, 0, nullptr);
+        }
+
+        if(draw.indexBuffer != lastIndexBuffer)
+        {
+            lastIndexBuffer = draw.indexBuffer;
+            vkCmdBindIndexBuffer(cmd, draw.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        }
 
         GPUDrawPushConstants pushConstatns;
         pushConstatns.vertexBuffer = draw.vertexBufferAddress;
@@ -220,8 +257,8 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     };
 
 
-    for(const auto& r : mainDrawContext.OpaqueSurfaces)
-       draw(r);
+    for(const auto& r : opaque_draws)
+       draw(mainDrawContext.OpaqueSurfaces[r]);
    
     for(const auto& r : mainDrawContext.TransparentSurfaces)
         draw(r);
@@ -617,7 +654,7 @@ void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
 
     vkb::Swapchain vkbSwapchain = swapchainBuilder
         .set_desired_format(VkSurfaceFormatKHR{ .format = _swapchainImageFormat })
-        .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
+        .set_desired_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR)//VK_PRESENT_MODE_FIFO_KHR)
         .set_desired_extent(width,height)
         .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
         .build()
