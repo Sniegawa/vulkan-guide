@@ -1,4 +1,5 @@
-﻿#include <string_view>
+﻿#include <iterator>
+#include <string_view>
 #include <vk_loader.h>
 
 #include <cassert>
@@ -350,6 +351,17 @@ std::shared_ptr<LoadedGLTF> loadGltf(VulkanEngine* engine, std::string_view file
             else
                 newSurface.material = materials[0];
     
+            glm::vec3 minpos = vertices[initial_vtx].position;
+            glm::vec3 maxpos = vertices[initial_vtx].position;
+            for(int i = initial_vtx; i < vertices.size(); i++)
+            {
+                minpos = glm::min(minpos, vertices[i].position);
+                maxpos = glm::max(maxpos, vertices[i].position);
+            }
+
+            newSurface.bounds.origin = (maxpos + minpos) / 2.0f;
+            newSurface.bounds.extents = (maxpos - minpos) / 2.0f;
+            newSurface.bounds.sphereRadius = glm::length(newSurface.bounds.extents);
 
             newMesh->surfaces.push_back(newSurface);
         }

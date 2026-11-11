@@ -135,6 +135,47 @@ void VulkanEngine::draw_background(VkCommandBuffer cmd)
     vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 16.0), std::ceil(_drawExtent.height / 16.0), 1);
 }
 
+// Simple frustum culling function
+// It takse object bounding box and transforms it into screenspace
+// Then it tests the corners to screenspace
+// It's not perfect its slow and can provide false-positives
+bool is_visible(const RenderObject& obj, const glm::mat4& viewproj)
+{
+    std::array<glm::vec3, 8> corners
+    {
+        glm::vec3 { 1, 1, 1 },
+        glm::vec3 { 1, 1, -1 },
+        glm::vec3 { 1, -1, 1 },
+        glm::vec3 { 1, -1, -1 },
+        glm::vec3 { -1, 1, 1 },
+        glm::vec3 { -1, 1, -1 },
+        glm::vec3 { -1, -1, 1 },
+        glm::vec3 { -1, -1, -1 },
+    };
+
+    glm::mat4 matrix = viewproj * obj.transform;
+
+    glm::vec3 min = { 1.5, 1.5, 1.5 };
+    glm::vec3 max = { -1.5, -1.5, -1.5 };
+    
+    for(int c = 0; c < 8; c++)
+    {
+        glm::vec4 v = matrix * glm::vec4(obj.bounds.origin + (corners[c] * obj.bounds.extents), 1.0f);
+
+        v.x = v.x / v.w;
+        v.y = v.y / v.w;
+        v.z = v.z / v.w;
+
+        min = glm::min(glm::vec3(v.x, v.y, v.z), min);
+        max = glm::max(glm::vec3(v.x, v.y, v.z), max);
+    }
+
+    if(min.z > 1.0f || max.z < 0.0f || min.x > 1.0f || max.x < -1.0f || min.y > 1.0f || max.y < -1.0f)
+        return false;
+    else
+        return true;
+}
+
 void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 {
     stats.drawcall_count = 0;
@@ -188,7 +229,8 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
     for(uint32_t i = 0; i < mainDrawContext.OpaqueSurfaces.size(); i++)
     {
-        opaque_draws.push_back(i);
+        if(is_visible(mainDrawContext.OpaqueSurfaces[i], sceneData.viewProj))
+            opaque_draws.push_back(i);
     }
 
     std::sort(opaque_draws.begin(),opaque_draws.end(), [&](const auto& iA, const auto& iB) {
